@@ -1,0 +1,11 @@
+[workspace]
+members = ["demo-server", "agent", "rpc"]
+resolver = "2"
+
+[workspace.package]
+authors = ["Matt Kafonek <kafonek@gmail.com>", "Dave Shoup <dave.shoup@gmail.com>"]
+edition = "2021"
+license = "MIT"
+homepage = "https://github.com/carabiner-tech/carabiner"
+repository = "https://github.com/carabiner-tech/carabiner"
+rust-version = "1.72.0"
