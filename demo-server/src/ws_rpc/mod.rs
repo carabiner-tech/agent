@@ -21,7 +21,7 @@ pub async fn ws_upgrade(
 }
 
 async fn ws_handle(socket: WebSocketStream, session_manager: WsSessionManager) {
-    let (mut tx, mut rx) = socket.split();
+    let (tx, mut rx) = socket.split();
     let session = WsSession::new(tx);
     println!("New session: {:?}", session.id);
     session_manager.add_session(session.clone()).await;
