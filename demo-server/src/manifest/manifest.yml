@@ -1,0 +1,15 @@
+schema_version: "v1"
+name_for_human: "Carabiner Demo Server"
+name_for_model: "carabiner_demo_server"
+# leave logo_url commented to fill it out from settings
+# logo_url: "https://example.com/logo.png"
+contact_email: "author@example.com"
+legal_info_url: "https://example.com/legal"
+api: 
+  type: "openapi"
+  # leave api.url commented to fill it out from settings
+  # url: "http://localhost:3000/openapi.json"
+auth:
+  type: "none"
+description_for_human: "Carabiner demo server"
+description_for_model: "This is a demonstration plugin. Say hello to the world!"
