@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn test_simple_dispatch() {
         // Serialize a CurrentTime request, deserialize it, and dispatch it.
-        let msg = CurrentTime::request();
+        let msg = CurrentTime::make_request();
         let msg_se = serde_json::to_string(&msg).unwrap();
 
         let msg_de: RpcMessage = serde_json::from_str(&msg_se).unwrap();

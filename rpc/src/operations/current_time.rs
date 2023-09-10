@@ -12,12 +12,12 @@ pub struct CurrentTimeResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CurrentTime {
     request: Option<CurrentTimeRequest>,
-    response: Option<CurrentTimeResponse>,
+    pub response: Option<CurrentTimeResponse>,
 }
 
 impl CurrentTime {
     #[allow(dead_code)]
-    pub fn request() -> RpcMessage {
+    pub fn make_request() -> RpcMessage {
         let req = CurrentTimeRequest {};
         let op = Op::CurrentTime(Self {
             request: Some(req),

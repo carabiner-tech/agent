@@ -1,6 +1,8 @@
 mod settings;
 use crate::settings::get_settings;
 use futures_util::{SinkExt, StreamExt};
+use rpc::Operation;
+use rpc::RpcMessage;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -17,6 +19,12 @@ async fn main() {
         match msg {
             Ok(Message::Text(msg)) => {
                 println!("Received message: {}", msg);
+                let req: RpcMessage = serde_json::from_str(&msg).unwrap();
+                let op = req.op.process();
+                let resp = RpcMessage { id: req.id, op };
+                let resp_se = serde_json::to_string(&resp).unwrap();
+                let resp_msg = Message::Text(resp_se);
+                tx.send(resp_msg).await.unwrap();
             }
             Err(e) => {
                 println!("Error: {}", e);

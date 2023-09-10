@@ -8,7 +8,8 @@ use poem::{
     },
     IntoResponse,
 };
-use tokio::sync::Mutex;
+use rpc::RpcMessage;
+use tokio::sync::{oneshot, Mutex};
 
 #[poem::handler]
 pub async fn ws_upgrade(
@@ -22,6 +23,7 @@ pub async fn ws_upgrade(
 async fn ws_handle(socket: WebSocketStream, session_manager: WsSessionManager) {
     let (mut tx, mut rx) = socket.split();
     let session = WsSession::new(tx);
+    println!("New session: {:?}", session.id);
     session_manager.add_session(session.clone()).await;
     while let Some(msg) = rx.next().await {
         match msg {
@@ -39,21 +41,49 @@ async fn ws_handle(socket: WebSocketStream, session_manager: WsSessionManager) {
 
 #[derive(Clone)]
 pub struct WsSession {
-    pub tx: Arc<Mutex<SplitSink<WebSocketStream, Message>>>,
     pub id: uuid::Uuid,
+    pub tx: Arc<Mutex<SplitSink<WebSocketStream, Message>>>,
+    callbacks: Arc<Mutex<HashMap<uuid::Uuid, oneshot::Sender<rpc::Op>>>>,
 }
 
 impl WsSession {
     pub fn new(ws_tx: SplitSink<WebSocketStream, Message>) -> Self {
-        let tx = Arc::new(Mutex::new(ws_tx));
         let id = uuid::Uuid::new_v4();
-        Self { tx, id }
+        let tx = Arc::new(Mutex::new(ws_tx));
+        let callbacks = Arc::new(Mutex::new(HashMap::new()));
+        Self { id, tx, callbacks }
     }
 
     pub async fn handle_message(&self, msg: String) {
         println!("Received message: {}", msg);
-        let echo = Message::Text(msg);
-        self.tx.lock().await.send(echo).await.unwrap();
+        let parsed_msg = serde_json::from_str::<RpcMessage>(&msg);
+        match parsed_msg {
+            Ok(msg) => {
+                // check if msg.id is in callbacks
+                let mut callbacks = self.callbacks.lock().await;
+                if let Some(tx) = callbacks.remove(&msg.id) {
+                    println!("Found callback for message: {}", msg.id);
+                    let _ = tx.send(msg.op);
+                } else {
+                    println!("No callback for message: {}", msg.id);
+                }
+            }
+            Err(e) => {
+                println!("Error parsing message: {}", e);
+            }
+        }
+    }
+
+    pub async fn send_rpc(&self, msg: RpcMessage) -> Option<rpc::Op> {
+        let msg_se = serde_json::to_string(&msg).unwrap();
+        let (cb_tx, cb_rx) = oneshot::channel::<rpc::Op>();
+        let mut callbacks = self.callbacks.lock().await;
+        callbacks.insert(msg.id, cb_tx);
+        drop(callbacks);
+        let mut tx = self.tx.lock().await;
+        let _ = tx.send(Message::Text(msg_se)).await;
+        drop(tx);
+        cb_rx.await.ok()
     }
 }
 
