@@ -1,8 +1,8 @@
 pub mod operations;
-use crate::operations::current_time::CurrentTime;
-
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
+
+use crate::operations::current_time::CurrentTime;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcMessage {
@@ -30,8 +30,9 @@ pub enum Op {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use assert_matches::assert_matches;
+
+    use super::*;
 
     #[test]
     fn test_simple_dispatch() {

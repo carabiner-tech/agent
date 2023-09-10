@@ -1,5 +1,6 @@
-use crate::{Op, Operation, RpcMessage};
 use serde::{Deserialize, Serialize};
+
+use crate::{Op, Operation, RpcMessage};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CurrentTimeRequest {}

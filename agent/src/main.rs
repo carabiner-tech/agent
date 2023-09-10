@@ -1,10 +1,9 @@
 mod settings;
-use crate::settings::get_settings;
 use futures_util::{SinkExt, StreamExt};
-use rpc::Operation;
-use rpc::RpcMessage;
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
+use rpc::{Operation, RpcMessage};
+use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+use crate::settings::get_settings;
 
 #[tokio::main]
 async fn main() {

@@ -1,10 +1,11 @@
-use poem::Route;
-use poem::{middleware::AddDataEndpoint, EndpointExt};
+use poem::{middleware::AddDataEndpoint, EndpointExt, Route};
 use poem_openapi::OpenApiService;
 
 use crate::{
-    api::Api, manifest::get_manifest, settings::get_settings, ws_rpc::ws_upgrade,
-    ws_rpc::WsSessionManager,
+    api::Api,
+    manifest::get_manifest,
+    settings::get_settings,
+    ws_rpc::{ws_upgrade, WsSessionManager},
 };
 
 pub fn build_app() -> AddDataEndpoint<Route, WsSessionManager> {
