@@ -1,7 +1,6 @@
-use poem::web::{Data};
+use poem::web::Data;
 use poem_openapi::{param::Path, payload::PlainText, OpenApi};
 use rpc::{operations::current_time::CurrentTime, Op};
-
 
 use crate::ws_rpc::WsSessionManager;
 
