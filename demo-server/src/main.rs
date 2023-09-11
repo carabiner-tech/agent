@@ -4,14 +4,13 @@ pub mod manifest;
 pub mod settings;
 pub mod ws_rpc;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use poem::{
     listener::TcpListener,
     middleware::{Cors, Tracing},
     EndpointExt, Server,
 };
-use std::sync::Arc;
 use tokio::sync::Mutex;
 use ws_rpc::WsSessionManager;
 

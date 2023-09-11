@@ -1,13 +1,14 @@
 pub mod conversation;
-use poem::{web::Data, Body};
-use poem_openapi::{param::Path, payload::PlainText, OpenApi};
-use poem_openapi::{payload::Json, Object};
-use rpc::{operations::current_time::CurrentTime, Op};
+use poem::{web::Data};
+use poem_openapi::{
+    payload::{Json, PlainText},
+    Object, OpenApi,
+};
+use rpc::{operations::current_time::CurrentTime};
 use serde::Deserialize;
 
-use crate::{ws_rpc::WsSessionManager, ConversationSessionMap};
-
 use self::conversation::{Conversation, ConversationHeader};
+use crate::{ws_rpc::WsSessionManager, ConversationSessionMap};
 
 pub struct Api;
 
