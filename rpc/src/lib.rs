@@ -1,4 +1,5 @@
 pub mod operations;
+use enum_as_inner::EnumAsInner;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +23,7 @@ pub trait Operation {
     fn process(&self) -> Self;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, EnumAsInner)]
 #[enum_dispatch]
 pub enum Op {
     CurrentTime(CurrentTime),

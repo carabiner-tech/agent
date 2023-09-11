@@ -1,10 +1,20 @@
-use poem::web::Data;
+pub mod conversation;
+use poem::{web::Data, Body};
 use poem_openapi::{param::Path, payload::PlainText, OpenApi};
+use poem_openapi::{payload::Json, Object};
 use rpc::{operations::current_time::CurrentTime, Op};
+use serde::Deserialize;
 
-use crate::ws_rpc::WsSessionManager;
+use crate::{ws_rpc::WsSessionManager, ConversationSessionMap};
+
+use self::conversation::{Conversation, ConversationHeader};
 
 pub struct Api;
+
+#[derive(Object, Deserialize)]
+struct SetSessionBody {
+    session_id: uuid::Uuid,
+}
 
 #[OpenApi]
 impl Api {
@@ -16,35 +26,45 @@ impl Api {
 
     #[oai(path = "/sessions", method = "get", operation_id = "list_sessions")]
     async fn list_sessions(&self, session_manager: Data<&WsSessionManager>) -> PlainText<String> {
-        // return list of abbreviated session ids (last part of uuid)
         let sessions = session_manager.list_sessions().await;
         let mut session_ids = Vec::new();
         for session in sessions {
             let id = session.id.to_string();
-            let id = id.split('-').last().unwrap();
             session_ids.push(id.to_string());
         }
-        let s = session_ids.join(", ");
+        let s = session_ids.join("\n ");
         PlainText(s)
     }
 
-    /// Request the current system time from a connected Agent by session id
-    #[oai(
-        path = "/current_time/:session_id",
-        method = "get",
-        operation_id = "current_time"
-    )]
-    async fn current_time(
+    /// Set an Agent websocket session id for the Conversation
+    #[oai(path = "/set_session", method = "post", operation_id = "set_session")]
+    async fn set_session(
         &self,
-        session_manager: Data<&WsSessionManager>,
-        session_id: Path<uuid::Uuid>,
+        body: Json<SetSessionBody>,
+        conversation_header: ConversationHeader,
+        conversation_session_map: Data<&ConversationSessionMap>,
+        ws_session_manager: Data<&WsSessionManager>,
     ) -> PlainText<String> {
-        if let Some(session) = session_manager.get_session(&session_id.0).await {
-            let rpc_msg = CurrentTime::make_request();
-            let Op::CurrentTime(op) = session.send_rpc(rpc_msg).await.unwrap();
-            PlainText(op.response.unwrap().time)
-        } else {
-            PlainText("session not found".to_string())
+        let conversation_id = conversation_header.0;
+        let session_id = body.session_id;
+        if ws_session_manager.get_session(&session_id).await.is_none() {
+            let s = "No session found for that session id";
+            return PlainText(s.to_string());
         }
+        let mut binding = conversation_session_map.lock().await;
+        binding.insert(conversation_id, session_id);
+        let s = "Session set";
+        PlainText(s.to_string())
+    }
+
+    /// Request the current system time from a connected Agent by session id
+    #[oai(path = "/current_time", method = "get", operation_id = "current_time")]
+    async fn current_time(&self, conversation: Conversation) -> PlainText<String> {
+        println!("session id: {:?}", conversation.session.id);
+
+        let rpc_msg = CurrentTime::make_request();
+        let op = conversation.session.send_rpc(rpc_msg).await.unwrap();
+        let ct = op.into_current_time().unwrap();
+        PlainText(ct.response.unwrap().time)
     }
 }
