@@ -43,7 +43,7 @@ impl Api {
         method = "post",
         operation_id = "use_agent"
     )]
-    async fn set_session(
+    async fn use_agent(
         &self,
         agent_id: Path<String>,
         conversation_header: ConversationHeader,
@@ -62,7 +62,7 @@ impl Api {
         }
         let mut binding = conversation_session_map.lock().await;
         binding.insert(conversation_id, agent_id);
-        let s = "Session set";
+        let s = "Agent set for this conversation";
         Ok(PlainText(s.to_string()))
     }
 

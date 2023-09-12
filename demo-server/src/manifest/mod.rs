@@ -35,7 +35,7 @@ impl Manifest {
             .unwrap()
             .set_default("api.url", settings.openapi_json_url().to_string())
             .unwrap()
-            .add_source(config::File::with_name("src/manifest/manifest.yml"))
+            .add_source(config::File::with_name("manifest.yml"))
             .add_source(config::Environment::with_prefix("MANIFEST").separator("_"))
             .build()
             .expect("Error building manifest config from file and env");
