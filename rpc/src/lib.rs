@@ -3,7 +3,7 @@ use enum_as_inner::EnumAsInner;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 
-use crate::operations::current_time::CurrentTime;
+use crate::operations::{current_time::CurrentTime, fs::ListFiles};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcMessage {
@@ -27,6 +27,7 @@ pub trait Operation {
 #[enum_dispatch]
 pub enum Op {
     CurrentTime(CurrentTime),
+    ListFiles(ListFiles),
 }
 
 #[cfg(test)]
