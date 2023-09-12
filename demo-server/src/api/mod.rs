@@ -1,5 +1,4 @@
-use poem::web::Data;
-use poem::Error;
+use poem::{web::Data, Error};
 use poem_openapi::{param::Path, payload::PlainText, Object, OpenApi};
 use rpc::operations::current_time::CurrentTime;
 use serde::Deserialize;

@@ -2,8 +2,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::settings::get_settings;
-use crate::settings::Settings;
+use crate::settings::{get_settings, Settings};
 
 lazy_static! {
     static ref MANIFEST: Manifest = Manifest::from_config();
