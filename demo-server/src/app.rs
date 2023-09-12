@@ -1,7 +1,7 @@
 use poem::Route;
 use poem_openapi::OpenApiService;
 
-use crate::{api::Api, manifest::get_manifest, settings::get_settings, ws_rpc::ws_upgrade};
+use crate::{api::Api, manifest::get_manifest, settings::get_settings, ws::ws_upgrade};
 
 pub fn build_app() -> Route {
     let settings = get_settings();
@@ -20,6 +20,9 @@ pub fn build_app() -> Route {
         .at("/ws", ws_upgrade)
 }
 
+// Doesn't need to be in OpenAPI schema. The manifest file tells ChatGPT where the OpenAPI
+// schema is at, what auth type the plugin uses, and a system prompt the plugin can use
+// to hint to the LLM how to use the plugin (in conjunction with OpenAPI schema)
 #[poem::handler]
 fn serve_manifest() -> String {
     let manifest = get_manifest();

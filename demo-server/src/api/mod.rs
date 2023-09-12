@@ -1,18 +1,18 @@
-pub mod conversation;
-use poem::{web::Data};
-use poem_openapi::{
-    payload::{Json, PlainText},
-    Object, OpenApi,
-};
-use rpc::{operations::current_time::CurrentTime};
+use poem::web::Data;
+use poem::Error;
+use poem_openapi::{param::Path, payload::PlainText, Object, OpenApi};
+use rpc::operations::current_time::CurrentTime;
 use serde::Deserialize;
 
-use self::conversation::{Conversation, ConversationHeader};
-use crate::{ws_rpc::WsSessionManager, ConversationSessionMap};
+use crate::{
+    dependencies::{Conversation, ConversationHeader},
+    ws::manager::WsSessionManager,
+    ConversationSessionMap,
+};
 
 pub struct Api;
 
-#[derive(Object, Deserialize)]
+#[derive(Object, Deserialize, Debug)]
 struct SetSessionBody {
     session_id: uuid::Uuid,
 }
@@ -25,7 +25,8 @@ impl Api {
         PlainText(s.to_string())
     }
 
-    #[oai(path = "/sessions", method = "get", operation_id = "list_sessions")]
+    /// List all the ids for Agents that have live websocket connections
+    #[oai(path = "/agents", method = "get", operation_id = "list_agent_ids")]
     async fn list_sessions(&self, session_manager: Data<&WsSessionManager>) -> PlainText<String> {
         let sessions = session_manager.list_sessions().await;
         let mut session_ids = Vec::new();
@@ -37,28 +38,36 @@ impl Api {
         PlainText(s)
     }
 
-    /// Set an Agent websocket session id for the Conversation
-    #[oai(path = "/set_session", method = "post", operation_id = "set_session")]
+    /// Set the active Agent to use for any RPC operations in this Conversation
+    #[oai(
+        path = "/use_agent/:agent_id",
+        method = "post",
+        operation_id = "use_agent"
+    )]
     async fn set_session(
         &self,
-        body: Json<SetSessionBody>,
+        agent_id: Path<String>,
         conversation_header: ConversationHeader,
         conversation_session_map: Data<&ConversationSessionMap>,
         ws_session_manager: Data<&WsSessionManager>,
-    ) -> PlainText<String> {
+    ) -> Result<PlainText<String>, Error> {
         let conversation_id = conversation_header.0;
-        let session_id = body.session_id;
-        if ws_session_manager.get_session(&session_id).await.is_none() {
+        let agent_id = uuid::Uuid::parse_str(&agent_id).map_err(|err| {
+            let s = format!("Agent ID must be a valid UUID: {}", err);
+            Error::from_string(s, poem::http::StatusCode::BAD_REQUEST)
+        })?;
+
+        if ws_session_manager.get_session(&agent_id).await.is_none() {
             let s = "No session found for that session id";
-            return PlainText(s.to_string());
+            return Err(Error::from_string(s, poem::http::StatusCode::BAD_REQUEST));
         }
         let mut binding = conversation_session_map.lock().await;
-        binding.insert(conversation_id, session_id);
+        binding.insert(conversation_id, agent_id);
         let s = "Session set";
-        PlainText(s.to_string())
+        Ok(PlainText(s.to_string()))
     }
 
-    /// Request the current system time from a connected Agent by session id
+    /// RPC operation to get the current system time for the active Agent in the conversation
     #[oai(path = "/current_time", method = "get", operation_id = "current_time")]
     async fn current_time(&self, conversation: Conversation) -> PlainText<String> {
         println!("session id: {:?}", conversation.session.id);

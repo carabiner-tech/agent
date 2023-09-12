@@ -1,8 +1,9 @@
 pub mod api;
 mod app;
+pub mod dependencies;
 pub mod manifest;
 pub mod settings;
-pub mod ws_rpc;
+pub mod ws;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -12,7 +13,7 @@ use poem::{
     EndpointExt, Server,
 };
 use tokio::sync::Mutex;
-use ws_rpc::WsSessionManager;
+use ws::manager::WsSessionManager;
 
 use crate::{app::build_app, settings::get_settings};
 
@@ -30,8 +31,9 @@ async fn main() {
     // Agents use the ws_session_manager to get the websocket connection by session id
     let ws_session_manager = WsSessionManager::default();
 
-    // When Users are working with LLM, they "set" a session id for the LLM conversation. Endpoints
-    // that make RPC request-replies use this conversation_session_map to get the right session id
+    // When Users are working with LLM, they "set" an Agent ID for the LLM conversation. Endpoints
+    // that make RPC request-replies use this conversation_session_map to get the right websocket
+    // session for that Agent. If the Agent disconnects, RPC endpoints will return 400's.
     let conversation_session_map: ConversationSessionMap = Arc::new(Mutex::new(HashMap::new()));
 
     let app = build_app()

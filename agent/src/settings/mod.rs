@@ -12,18 +12,22 @@ pub fn get_settings() -> &'static Settings {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
+    #[serde(default = "Settings::default_rpc_server")]
     pub rpc_server: Url,
 }
 
 impl Settings {
     pub fn from_config() -> Self {
         let builder = config::Config::builder()
-            .add_source(config::File::with_name("src/settings/settings.yml"))
             .add_source(config::Environment::with_prefix("AGENT").separator("_"))
             .build()
             .expect("Error building settings config from file and env");
         builder
             .try_deserialize()
             .expect("Error converting config into Settings struct")
+    }
+
+    pub fn default_rpc_server() -> Url {
+        Url::parse("ws://localhost:3000/ws").unwrap()
     }
 }
