@@ -12,8 +12,6 @@ async fn main() {
     let (ws_stream, _addr) = connect_async(&settings.rpc_server).await.unwrap();
 
     let (mut tx, mut rx) = ws_stream.split();
-    let msg = Message::Text("Test".to_string());
-    tx.send(msg).await.unwrap();
     while let Some(msg) = rx.next().await {
         match msg {
             Ok(Message::Text(msg)) => {
