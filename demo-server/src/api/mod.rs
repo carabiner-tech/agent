@@ -8,6 +8,7 @@
 //! RPC Request structs from the rpc lib implement the poem-openapi Object trait,
 //! so they can be used as the body for a POST request and automatically documented
 //! in the OpenAPI schema.
+
 use poem::{web::Data, Error};
 use poem_openapi::{
     param::Path,
@@ -18,7 +19,8 @@ use rpc::{
     operations::{
         list_files::ListFilesRequest,
         time::{SystemTimeRequest, SystemTimeResponse},
-    }, RpcRequest,
+    },
+    RpcRequest,
 };
 use serde::Deserialize;
 
@@ -87,12 +89,8 @@ impl Api {
 
     /// RPC operation to get the current system time for the active Agent in the conversation
     #[oai(path = "/current_time", method = "post", operation_id = "current_time")]
-    async fn current_time(
-        &self,
-        body: Json<SystemTimeRequest>,
-        conversation: Conversation,
-    ) -> Result<PlainText<String>, Error> {
-        let req = body.0;
+    async fn current_time(&self, conversation: Conversation) -> Result<PlainText<String>, Error> {
+        let req = SystemTimeRequest {};
         let resp = conversation
             .session
             .send_rpc(RpcRequest::SystemTime(req))

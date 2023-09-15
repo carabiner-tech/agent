@@ -6,7 +6,6 @@ One way to think about human-computer interactions is to consider what *artifact
 
 # Overview
 
-
 ![Overview Diagram](./docs/diagrams/overview.svg)
 
 
@@ -25,6 +24,15 @@ If you have plugin developer access to ChatGPT, you can try out running our demo
 9. Experiment by adding new endpoints to `demo-server/src/api/mod.rs` to support other RPC operations. 
 
 Note the "openai plugin devtools" is very useful to reload your locally-developed plugin here. Otherwise you'll need to uninstall / redevelop the plugin for ChatGPT to pick up changes to your OpenAPI schema.
+
+# Key Crates
+
+ - `tokio` for async runtime in the Agent and Server, `tokio-tungstenite` for the websocket support
+ - `poem` / `poem-openapi` for HTTP route handling and OpenAPI schema generation
+   - `RpcRequest` variant structs in `rpc/src/operations` derive `poem-openapi::Object` so they can be used as documented POST bodies
+ - `config` for building up settings and manifest file with env overrides
+ - `serde` for serializing RPC requests over websocket
+ - Tried to use `enum_dispatch` and `into_variant` for easier message processing after deserialization, and coercing Request/Responses into variants, but ended up writing a custom declarative macro instead
 
 # Coming Soon
 
