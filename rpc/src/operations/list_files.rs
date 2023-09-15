@@ -87,11 +87,11 @@ impl ListFilesRequest {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
+    use std::{fs::File, io::Write};
+
+    use tempfile::TempDir;
 
     use super::*;
-    use tempfile::TempDir;
 
     #[rstest::fixture]
     fn tmp_dir() -> TempDir {

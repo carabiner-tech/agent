@@ -4,8 +4,10 @@ use enum_as_inner::EnumAsInner;
 use serde::{Deserialize, Serialize};
 pub mod operations;
 
-use operations::list_files::{ListFilesRequest, ListFilesResponse};
-use operations::time::{SystemTimeRequest, SystemTimeResponse};
+use operations::{
+    list_files::{ListFilesRequest, ListFilesResponse},
+    time::{SystemTimeRequest, SystemTimeResponse},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcMessage<T> {
