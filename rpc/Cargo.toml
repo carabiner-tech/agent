@@ -12,9 +12,18 @@ rust-version.workspace = true
 
 [dependencies]
 assert_matches = "1.5.0"
-chrono = "0.4.30"
+async-trait = "0.1.73"
+chrono = { version = "0.4.30", features = ["serde"] }
 enum-as-inner = "0.6.0"
-enum_dispatch = "0.3.12"
+enum_delegate = "0.2.0"
+into_variant = "0.3.0"
+poem-openapi = "3.0.5"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.106"
 uuid = { version = "1.4.1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+rstest = "0.18.2"
+serial_test = "2.0.0"
+tempfile = "3.8.0"
+tokio = { version = "1.32.0", features = ["test-util"] }

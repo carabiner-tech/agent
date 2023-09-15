@@ -1,6 +1,14 @@
 use poem::{web::Data, Error};
-use poem_openapi::{param::Path, payload::PlainText, Object, OpenApi};
-use rpc::operations::current_time::CurrentTime;
+use poem_openapi::{
+    param::Path,
+    payload::{Json, PlainText},
+    Object, OpenApi,
+};
+use rpc::operations::{
+    list_files::ListFilesRequest,
+    time::{SystemTimeRequest, SystemTimeResponse},
+};
+use rpc::{RpcMessage, RpcRequest, RpcResponse};
 use serde::Deserialize;
 
 use crate::{
@@ -67,13 +75,64 @@ impl Api {
     }
 
     /// RPC operation to get the current system time for the active Agent in the conversation
-    #[oai(path = "/current_time", method = "get", operation_id = "current_time")]
-    async fn current_time(&self, conversation: Conversation) -> PlainText<String> {
-        println!("session id: {:?}", conversation.session.id);
+    #[oai(path = "/current_time", method = "post", operation_id = "current_time")]
+    async fn current_time(
+        &self,
+        body: Json<SystemTimeRequest>,
+        conversation: Conversation,
+    ) -> Result<PlainText<String>, Error> {
+        let req = body.0;
+        let resp = conversation
+            .session
+            .send_rpc(RpcRequest::SystemTime(req))
+            .await;
+        match resp.into_system_time() {
+            Ok(SystemTimeResponse { time }) => {
+                let s = format!("Current time: {}", time);
+                Ok(PlainText(s))
+            }
+            Err(e) => {
+                let rpc_error = e.into_rpc_error().unwrap();
 
-        let rpc_msg = CurrentTime::make_request();
-        let op = conversation.session.send_rpc(rpc_msg).await.unwrap();
-        let ct = op.into_current_time().unwrap();
-        PlainText(ct.response.unwrap().time)
+                Err(Error::from_string(
+                    rpc_error.to_string(),
+                    poem::http::StatusCode::BAD_REQUEST,
+                ))
+            }
+        }
+    }
+
+    /// RPC operation to list files in the current working directory or subdirectory for the active Agent
+    #[oai(path = "/list_files", method = "post", operation_id = "list_files")]
+    async fn list_files(
+        &self,
+        body: Json<ListFilesRequest>,
+        conversation: Conversation,
+    ) -> Result<PlainText<String>, Error> {
+        let req = body.0;
+        let resp = conversation
+            .session
+            .send_rpc(RpcRequest::ListFiles(req))
+            .await;
+        match resp.into_list_files() {
+            Ok(rpc::operations::list_files::ListFilesResponse { files, directories }) => {
+                let mut s = String::new();
+                for file in files {
+                    s.push_str(&format!("{}: {} bytes\n", file.name, file.size));
+                }
+                for dir in directories {
+                    s.push_str(&format!("{}: directory\n", dir));
+                }
+                Ok(PlainText(s))
+            }
+            Err(e) => {
+                let rpc_error = e.into_rpc_error().unwrap();
+
+                Err(Error::from_string(
+                    rpc_error.to_string(),
+                    poem::http::StatusCode::BAD_REQUEST,
+                ))
+            }
+        }
     }
 }

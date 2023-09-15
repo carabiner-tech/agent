@@ -4,13 +4,13 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures_util::{stream::SplitSink, SinkExt};
 use poem::web::websocket::{Message, WebSocketStream};
-use rpc::RpcMessage;
+use rpc::{RpcMessage, RpcRequest, RpcResponse};
 use tokio::sync::{oneshot, Mutex};
 #[derive(Clone)]
 pub struct WsSession {
     pub id: uuid::Uuid,
     pub tx: Arc<Mutex<SplitSink<WebSocketStream, Message>>>,
-    callbacks: Arc<Mutex<HashMap<uuid::Uuid, oneshot::Sender<rpc::Op>>>>,
+    callbacks: Arc<Mutex<HashMap<uuid::Uuid, oneshot::Sender<RpcResponse>>>>,
 }
 
 impl WsSession {
@@ -23,14 +23,14 @@ impl WsSession {
 
     pub async fn handle_message(&self, msg: String) {
         println!("Received message: {}", msg);
-        let parsed_msg = serde_json::from_str::<RpcMessage>(&msg);
+        let parsed_msg = serde_json::from_str::<RpcMessage<RpcResponse>>(&msg);
         match parsed_msg {
             Ok(msg) => {
                 // check if msg.id is in callbacks
                 let mut callbacks = self.callbacks.lock().await;
                 if let Some(tx) = callbacks.remove(&msg.id) {
                     println!("Found callback for message: {}", msg.id);
-                    let _ = tx.send(msg.op);
+                    let _ = tx.send(msg.payload);
                 } else {
                     println!("No callback for message: {}", msg.id);
                 }
@@ -41,15 +41,19 @@ impl WsSession {
         }
     }
 
-    pub async fn send_rpc(&self, msg: RpcMessage) -> Option<rpc::Op> {
+    pub async fn send_rpc(&self, req: RpcRequest) -> RpcResponse {
+        let msg = RpcMessage {
+            id: uuid::Uuid::new_v4(),
+            payload: req,
+        };
         let msg_se = serde_json::to_string(&msg).unwrap();
-        let (cb_tx, cb_rx) = oneshot::channel::<rpc::Op>();
+        let (cb_tx, cb_rx) = oneshot::channel::<RpcResponse>();
         let mut callbacks = self.callbacks.lock().await;
         callbacks.insert(msg.id, cb_tx);
         drop(callbacks);
         let mut tx = self.tx.lock().await;
         let _ = tx.send(Message::Text(msg_se)).await;
         drop(tx);
-        cb_rx.await.ok()
+        cb_rx.await.unwrap()
     }
 }

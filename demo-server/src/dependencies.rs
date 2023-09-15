@@ -14,16 +14,21 @@ pub struct ConversationHeader(pub String);
 impl<'a> FromRequest<'a> for ConversationHeader {
     async fn from_request(req: &'a Request, _body: &mut RequestBody) -> Result<Self, Error> {
         // Check if conversation-id header is present, raise 400 if not
-        let conv_header = match req.headers().get("openai-conversation-id") {
-            Some(header) => Some(header).unwrap(),
+        let conv_id = match req.headers().get("openai-conversation-id") {
+            Some(header) => Some(header).unwrap().to_str().unwrap(),
+            // In production, you probably want to err out if there's no conversation header
+            // For dev/debug, we'll just fall back to a hardcoded conv id 123
+            // None => {
+            //     println!("Missing header, req headers: {:#?}", req.headers());
+            //     let msg = "Missing conversation-id header";
+            //     return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
+            // }
             None => {
-                println!("Missing header, req headers: {:#?}", req.headers());
-                let msg = "Missing conversation-id header";
-                return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
+                println!("Falling back to hard-coded id");
+                "123"
             }
         };
 
-        let conv_id = conv_header.to_str().unwrap();
         Ok(Self(conv_id.to_string()))
     }
 }
@@ -43,23 +48,27 @@ impl<'a> FromRequest<'a> for Conversation {
 
         // Check if an Agent has been set for this conversation, raise 400 if not
         let conversation_session_map = req.data::<ConversationSessionMap>().unwrap();
-        let binding = conversation_session_map.lock().await;
-        let session_id = match binding.get(&conv_id.0) {
-            Some(maybe_session_id) => Some(maybe_session_id).unwrap(),
-            None => {
-                let msg = "No session set for this Conversation yet";
-                return Err(Error::from_string(msg, StatusCode::NOT_FOUND));
-            }
-        };
-
-        // Check if the Agent for the conversation is still connected, raise 400 if not
         let ws_session_manager = req.data::<WsSessionManager>().unwrap();
-        let session = match ws_session_manager.get_session(session_id).await {
-            Some(maybe_session) => Some(maybe_session).unwrap(),
-            None => {
-                let msg = "Agent websocket session ended. Set a new session id or reconnect Agent";
-                return Err(Error::from_string(msg, StatusCode::NOT_FOUND));
+
+        let binding = conversation_session_map.lock().await;
+        let session = match binding.get(&conv_id.0) {
+            Some(session_id) => {
+                let session = ws_session_manager.get_session(session_id).await;
+                match session {
+                    Some(session) => session,
+                    None => {
+                        let msg = "No session found for conversation";
+                        return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
+                    }
+                }
             }
+            None => match ws_session_manager.first_session().await {
+                Some(session) => session,
+                None => {
+                    let msg = "No session found for conversation";
+                    return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
+                }
+            },
         };
         Ok(Self {
             id: conv_id.0,

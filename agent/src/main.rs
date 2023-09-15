@@ -1,6 +1,6 @@
 mod settings;
 use futures_util::{SinkExt, StreamExt};
-use rpc::{Operation, RpcMessage};
+use rpc::{RpcMessage, RpcRequest};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use crate::settings::get_settings;
@@ -16,12 +16,14 @@ async fn main() {
         match msg {
             Ok(Message::Text(msg)) => {
                 println!("Received message: {}", msg);
-                let req: RpcMessage = serde_json::from_str(&msg).unwrap();
-                let op = req.op.process();
-                let resp = RpcMessage { id: req.id, op };
-                let resp_se = serde_json::to_string(&resp).unwrap();
-                let resp_msg = Message::Text(resp_se);
-                tx.send(resp_msg).await.unwrap();
+                let msg_de: RpcMessage<RpcRequest> = serde_json::from_str(&msg).unwrap();
+                let resp = msg_de.payload.process().await;
+                let resp_msg = RpcMessage {
+                    id: msg_de.id,
+                    payload: resp,
+                };
+                let resp_msg_ser = serde_json::to_string(&resp_msg).unwrap();
+                tx.send(Message::Text(resp_msg_ser)).await.unwrap();
             }
             Err(e) => {
                 println!("Error: {}", e);
