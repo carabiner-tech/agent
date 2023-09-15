@@ -82,15 +82,11 @@ struct VerificationTokens {
 
 impl Auth {
     fn validate(self) -> Result<(), String> {
-        if self.auth_type == "oauth" {
-            if self.client_url.is_none()
+        if self.auth_type == "oauth" && (self.client_url.is_none()
                 || self.authorization_url.is_none()
                 || self.authorization_content_type.is_none()
-                || self.scope.is_none()
-                || self.verification_tokens.is_none()
-            {
-                return Err("Missing required fields for OAuth".to_string());
-            }
+                || self.scope.is_none() || self.verification_tokens.is_none()) {
+            return Err("Missing required fields for OAuth".to_string());
         }
         Ok(())
     }

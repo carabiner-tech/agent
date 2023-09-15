@@ -22,7 +22,7 @@ impl WsSessionManager {
 
     pub async fn add_session(&self, session: WsSession) {
         let mut sessions = self.sessions.lock().await;
-        sessions.insert(session.id.clone(), session);
+        sessions.insert(session.id, session);
     }
 
     pub async fn remove_session(&self, session: WsSession) {

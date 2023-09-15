@@ -38,7 +38,7 @@ async fn main() {
 
     let app = build_app()
         .with(Cors::new())
-        .with(Tracing::default())
+        .with(Tracing)
         .data(ws_session_manager)
         .data(conversation_session_map);
 

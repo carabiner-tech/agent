@@ -15,7 +15,7 @@ impl<'a> FromRequest<'a> for ConversationHeader {
     async fn from_request(req: &'a Request, _body: &mut RequestBody) -> Result<Self, Error> {
         // Check if conversation-id header is present, raise 400 if not
         let conv_id = match req.headers().get("openai-conversation-id") {
-            Some(header) => Some(header).unwrap().to_str().unwrap(),
+            Some(header) => header.to_str().unwrap(),
             // In production, you probably want to err out if there's no conversation header
             // For dev/debug, we'll just fall back to a hardcoded conv id 123
             // None => {
@@ -75,7 +75,7 @@ impl<'a> FromRequest<'a> for Conversation {
         };
         Ok(Self {
             id: conv_id.0,
-            session: session,
+            session,
         })
     }
 }

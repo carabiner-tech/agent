@@ -26,6 +26,6 @@ pub fn build_app() -> Route {
 #[poem::handler]
 fn serve_manifest() -> String {
     let manifest = get_manifest();
-    let manifest_json = serde_json::to_string_pretty(&manifest).unwrap();
-    manifest_json
+    
+    serde_json::to_string_pretty(&manifest).unwrap()
 }
