@@ -26,3 +26,9 @@ If you have plugin developer access to ChatGPT, you can try out running our demo
 
 Note the "openai plugin devtools" is very useful to reload your locally-developed plugin here. Otherwise you'll need to uninstall / redevelop the plugin for ChatGPT to pick up changes to your OpenAPI schema.
 
+# Coming Soon
+
+ - An unverified and prod plugin you can install in ChatGPT to work with our hosted server
+ - Docker containers for various runtimes with the Agent installed
+ - Python / Rust libraries for openai function calling that interacts with a Carabiner server
+ - Integration with other LLMs
