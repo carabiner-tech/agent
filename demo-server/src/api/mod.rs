@@ -1,3 +1,13 @@
+//! Endpoints that will show up in the OpenAPI Schema.
+//!
+//! Endpoints can use the Conversation "dependency injection" style function to ensure
+//! an Agent id has been "set" for the conversation (based on HTTP header) and that
+//! the Agent has an active websocket connection. It also contains a ref to the websocket
+//! session to send / receive RPC messages over.
+//!
+//! RPC Request structs from the rpc lib implement the poem-openapi Object trait,
+//! so they can be used as the body for a POST request and automatically documented
+//! in the OpenAPI schema.
 use poem::{web::Data, Error};
 use poem_openapi::{
     param::Path,
