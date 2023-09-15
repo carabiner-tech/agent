@@ -57,11 +57,14 @@ impl<'a> FromRequest<'a> for Conversation {
                 match session {
                     Some(session) => session,
                     None => {
-                        let msg = "No session found for conversation";
+                        let msg = "Agent websocket session disconencted, set a new session";
                         return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
                     }
                 }
             }
+            // dev/debug hack, fall back to using first available Agent if one is available
+            // and no Agent has been set for this conversation. Obviously in prod we'd just
+            // error out with the no session found for conversation message
             None => match ws_session_manager.first_session().await {
                 Some(session) => session,
                 None => {
