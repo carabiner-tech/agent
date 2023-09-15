@@ -16,14 +16,20 @@ async fn main() {
         match msg {
             Ok(Message::Text(msg)) => {
                 println!("Received message: {}", msg);
-                let msg_de: RpcMessage<RpcRequest> = serde_json::from_str(&msg).unwrap();
-                let resp = msg_de.payload.process().await;
-                let resp_msg = RpcMessage {
-                    id: msg_de.id,
-                    payload: resp,
-                };
-                let resp_msg_ser = serde_json::to_string(&resp_msg).unwrap();
-                tx.send(Message::Text(resp_msg_ser)).await.unwrap();
+                let result: Result<RpcMessage<RpcRequest>, _> = serde_json::from_str(&msg);
+
+                if let Ok(msg_de) = result {
+                    let resp = msg_de.payload.process().await;
+                    let resp_msg = RpcMessage {
+                        id: msg_de.id,
+                        payload: resp,
+                    };
+                    let resp_msg_ser = serde_json::to_string(&resp_msg).unwrap();
+                    tx.send(Message::Text(resp_msg_ser)).await.unwrap();
+                } else {
+                    // Continue to the next iteration of the loop
+                    continue;
+                }
             }
             Err(e) => {
                 println!("Error: {}", e);

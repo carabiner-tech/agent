@@ -41,6 +41,11 @@ impl WsSession {
         }
     }
 
+    pub async fn send(&self, text: String) {
+        let mut tx = self.tx.lock().await;
+        let _ = tx.send(Message::Text(text)).await;
+    }
+
     pub async fn send_rpc(&self, req: RpcRequest) -> RpcResponse {
         let msg = RpcMessage {
             id: uuid::Uuid::new_v4(),

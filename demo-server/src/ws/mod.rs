@@ -25,6 +25,9 @@ async fn ws_handle(socket: WebSocketStream, session_manager: WsSessionManager) {
     let session = WsSession::new(tx);
     println!("New session: {:?}", session.id);
     session_manager.add_session(session.clone()).await;
+    session
+        .send(format!("Agent connected. Session ID: {}", session.id))
+        .await;
     while let Some(msg) = rx.next().await {
         match msg {
             Ok(Message::Text(msg)) => session.handle_message(msg).await,
