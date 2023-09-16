@@ -1,3 +1,5 @@
+//! List the files and subdirectories at a given path.
+//! Only allows relative paths from CWD where Agent started.
 use std::{cmp::Ordering, error::Error};
 
 use poem_openapi::Object;
