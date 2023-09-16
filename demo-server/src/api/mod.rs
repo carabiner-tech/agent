@@ -13,13 +13,12 @@ use poem::{web::Data, Error};
 use poem_openapi::{
     param::Path,
     payload::{Json, PlainText},
-    Object, OpenApi,
+    OpenApi,
 };
 use rpc::operations::{
     list_files::ListFilesRequest,
     time::{SystemTimeRequest, SystemTimeResponse},
 };
-use serde::Deserialize;
 
 use crate::{
     dependencies::{Conversation, ConversationHeader},
@@ -28,11 +27,6 @@ use crate::{
 };
 
 pub struct Api;
-
-#[derive(Object, Deserialize, Debug)]
-struct SetSessionBody {
-    session_id: uuid::Uuid,
-}
 
 #[OpenApi]
 impl Api {
