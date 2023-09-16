@@ -15,7 +15,7 @@ use poem_openapi::{
     payload::{Json, PlainText},
     OpenApi,
 };
-use rpc::operations::{list_files::ListFilesRequest, time::SystemTimeRequest};
+use rpc::{ListFilesRequest, SystemTimeRequest};
 
 use crate::{
     dependencies::{Conversation, ConversationHeader},
