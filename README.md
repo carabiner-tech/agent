@@ -32,7 +32,20 @@ Note the "openai plugin devtools" is very useful to reload your locally-develope
    - `RpcRequest` variant structs in `rpc/src/operations` derive `poem-openapi::Object` so they can be used as documented POST bodies
  - `config` for building up settings and manifest file with env overrides
  - `serde` for serializing RPC requests over websocket
- - Tried to use `enum_dispatch` and `into_variant` for easier message processing after deserialization, and coercing Request/Responses into variants, but ended up writing a custom declarative macro instead
+
+# RPC
+
+The core functionality of this project, LLMs taking "real world" action and getting feedback that it can iterate with, is done through remote procedure calls (RPC). There are many mature, battle-tested RPC frameworks already out there, such as gRPC / `tonic`. It's important to explain why we rolled our own instead of using an existing solution.
+
+We are implementing "reverse RPC" here. The Agent establishes the websocket connection but acts like the RPC server, handling RPC requests and returning RPC responses. While there are some stack-overflow posts and github issues that address "reverse RPC", we were not able to find full-fledged examples that fit well into our overall Agent and Server stack.
+
+The features we have prioritized in building this new RPC framework are:
+ - Clean abstractions for wrapping an RPC Request into a `Message<RpcRequest>` wrapper, which includes going from a request `struct` to an `RpcRequest` enum variant
+ - Clean abstractions for deserializing into `Message<RpcResponse>` and calling a `process` function without having to figure out which specific `RpcResponse` variant it is
+ - Individual structs to document what the request and response payload structure is, which can also be used as POST bodies for HTTP endpoints and be automatically included in OpenAPI schemas
+ - Easy way to write unit tests for each RPC operation `process` functions
+
+We initially tried to use crates such as `enum_dispatch`, `enum_delegate`, and `into_variant` but in the end wrote our own declarative macro to cover the high level abstractions. `define_rpc!` takes a name (str), a request struct, and a response struct, and builds up the `RpcRequest` and `RpcResponse` enums, as well as the `RpcRequest.process` implementation and `From` impls that `enum_dispatch` and `into_variant` provided.
 
 # Coming Soon
 

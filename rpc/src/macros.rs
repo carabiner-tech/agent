@@ -26,5 +26,19 @@ macro_rules! define_rpc {
                 }
             }
         }
+
+        $(
+            impl From<$req_type> for RpcRequest {
+                fn from(req: $req_type) -> Self {
+                    RpcRequest::$variant(req)
+                }
+            }
+
+            impl From<$res_type> for RpcResponse {
+                fn from(res: $res_type) -> Self {
+                    RpcResponse::$variant(res)
+                }
+            }
+        )*
     };
 }

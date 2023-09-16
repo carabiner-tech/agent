@@ -91,10 +91,7 @@ impl Api {
     #[oai(path = "/current_time", method = "post", operation_id = "current_time")]
     async fn current_time(&self, conversation: Conversation) -> Result<PlainText<String>, Error> {
         let req = SystemTimeRequest {};
-        let resp = conversation
-            .session
-            .send_rpc(RpcRequest::SystemTime(req))
-            .await;
+        let resp = conversation.session.send_rpc(req.into()).await;
         match resp.into_system_time() {
             Ok(SystemTimeResponse { time }) => {
                 let s = format!("Current time: {}", time);
@@ -119,10 +116,7 @@ impl Api {
         conversation: Conversation,
     ) -> Result<PlainText<String>, Error> {
         let req = body.0;
-        let resp = conversation
-            .session
-            .send_rpc(RpcRequest::ListFiles(req))
-            .await;
+        let resp = conversation.session.send_rpc(req.into()).await;
         match resp.into_list_files() {
             Ok(rpc::operations::list_files::ListFilesResponse { files, directories }) => {
                 let mut s = String::new();
