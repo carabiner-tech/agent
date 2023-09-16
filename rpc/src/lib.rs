@@ -6,8 +6,10 @@ pub mod operations;
 
 // re-export of request/responses
 pub use operations::{
-    fs::list_files::{ListFilesRequest, ListFilesResponse},
-    fs::read_file::{ReadFileRequest, ReadFileResponse},
+    fs::{
+        list_files::{ListFilesRequest, ListFilesResponse},
+        read_file::{ReadFileRequest, ReadFileResponse},
+    },
     time::{SystemTimeRequest, SystemTimeResponse},
 };
 

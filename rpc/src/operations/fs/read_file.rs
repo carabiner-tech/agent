@@ -10,7 +10,7 @@ pub struct ReadFileRequest {
     pub path: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct ReadFileResponse {
     pub content: String,
 }
