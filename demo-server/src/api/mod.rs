@@ -26,6 +26,9 @@ use crate::{
     ConversationSessionMap,
 };
 
+// Websocket session state and conversation -> Agent ws connection are both stored
+// in App state rather than as part of the Api struct (which routes could access with
+// &self), because the ws endpoint needs to get access to them too.
 pub struct Api;
 
 #[OpenApi]
@@ -65,8 +68,8 @@ impl Api {
         let req = SystemTimeRequest {};
         let resp = conversation.session.send_rpc(req.into()).await;
         match resp.into_system_time() {
-            Ok(SystemTimeResponse { time }) => {
-                let s = format!("Current time: {}", time);
+            Ok(resp) => {
+                let s = format!("Current time: {}", resp.time);
                 Ok(PlainText(s))
             }
             Err(e) => {
@@ -90,12 +93,12 @@ impl Api {
         let req = body.0;
         let resp = conversation.session.send_rpc(req.into()).await;
         match resp.into_list_files() {
-            Ok(rpc::operations::list_files::ListFilesResponse { files, directories }) => {
+            Ok(resp) => {
                 let mut s = String::new();
-                for file in files {
+                for file in resp.files {
                     s.push_str(&format!("{}: {} bytes\n", file.name, file.size));
                 }
-                for dir in directories {
+                for dir in resp.directories {
                     s.push_str(&format!("{}: directory\n", dir));
                 }
                 Ok(PlainText(s))
