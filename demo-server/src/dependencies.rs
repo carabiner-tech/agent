@@ -7,25 +7,20 @@ use crate::{
 };
 
 // Use this when conversation-id header is required but not a connected websocket session,
-// such as for a route to set the active Agent for a conversation. Raises 400 if header missing.
+// such when setting the active Agent for a conversation.
 pub struct ConversationHeader(pub String);
 
 #[poem::async_trait]
 impl<'a> FromRequest<'a> for ConversationHeader {
     async fn from_request(req: &'a Request, _body: &mut RequestBody) -> Result<Self, Error> {
         // Check if conversation-id header is present, raise 400 if not
+        // TODO: check for multiple headers once we have integrations besides ChatGPT plugin
         let conv_id = match req.headers().get("openai-conversation-id") {
             Some(header) => header.to_str().unwrap(),
-            // In production, you probably want to err out if there's no conversation header
-            // For dev/debug, we'll just fall back to a hardcoded conv id 123
-            // None => {
-            //     println!("Missing header, req headers: {:#?}", req.headers());
-            //     let msg = "Missing conversation-id header";
-            //     return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
-            // }
             None => {
-                println!("Falling back to hard-coded id");
-                "123"
+                println!("Missing header, req headers: {:#?}", req.headers());
+                let msg = "Missing conversation-id header";
+                return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
             }
         };
 
@@ -46,10 +41,12 @@ impl<'a> FromRequest<'a> for Conversation {
     async fn from_request(req: &'a Request, _body: &mut RequestBody) -> Result<Self, Error> {
         let conv_id = ConversationHeader::from_request_without_body(req).await?;
 
-        // Check if an Agent has been set for this conversation, raise 400 if not
         let conversation_session_map = req.data::<ConversationSessionMap>().unwrap();
         let ws_session_manager = req.data::<WsSessionManager>().unwrap();
 
+        // - We already would have raised error if conversation-id header was missing
+        // - First check if Agent has been set for conversation
+        // - Then check if websocket session is still active
         let binding = conversation_session_map.lock().await;
         let session = match binding.get(&conv_id.0) {
             Some(session_id) => {
@@ -62,16 +59,11 @@ impl<'a> FromRequest<'a> for Conversation {
                     }
                 }
             }
-            // dev/debug hack, fall back to using first available Agent if one is available
-            // and no Agent has been set for this conversation. Obviously in prod we'd just
-            // error out with the no session found for conversation message
-            None => match ws_session_manager.first_session().await {
-                Some(session) => session,
-                None => {
-                    let msg = "No session found for conversation";
-                    return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
-                }
-            },
+
+            None => {
+                let msg = "No session found for conversation";
+                return Err(Error::from_string(msg, StatusCode::BAD_REQUEST));
+            }
         };
         Ok(Self {
             id: conv_id.0,
