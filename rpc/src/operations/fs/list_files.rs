@@ -19,7 +19,7 @@ impl Default for ListFilesRequest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Object)]
 pub struct File {
     pub name: String,
     pub size: u64,
@@ -37,7 +37,7 @@ impl Ord for File {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct ListFilesResponse {
     pub files: Vec<File>,
     pub directories: Vec<String>,
