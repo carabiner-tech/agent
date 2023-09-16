@@ -15,12 +15,9 @@ use poem_openapi::{
     payload::{Json, PlainText},
     Object, OpenApi,
 };
-use rpc::{
-    operations::{
-        list_files::ListFilesRequest,
-        time::{SystemTimeRequest, SystemTimeResponse},
-    },
-    RpcRequest,
+use rpc::operations::{
+    list_files::ListFilesRequest,
+    time::{SystemTimeRequest, SystemTimeResponse},
 };
 use serde::Deserialize;
 
@@ -39,25 +36,6 @@ struct SetSessionBody {
 
 #[OpenApi]
 impl Api {
-    #[oai(path = "/", method = "get", operation_id = "hello")]
-    async fn index(&self) -> PlainText<String> {
-        let s = "Hello, world!";
-        PlainText(s.to_string())
-    }
-
-    /// List all the ids for Agents that have live websocket connections
-    #[oai(path = "/agents", method = "get", operation_id = "list_agent_ids")]
-    async fn list_sessions(&self, session_manager: Data<&WsSessionManager>) -> PlainText<String> {
-        let sessions = session_manager.list_sessions().await;
-        let mut session_ids = Vec::new();
-        for session in sessions {
-            let id = session.id.to_string();
-            session_ids.push(id.to_string());
-        }
-        let s = session_ids.join("\n ");
-        PlainText(s)
-    }
-
     /// Set the active Agent to use for any RPC operations in this Conversation
     #[oai(
         path = "/use_agent/:agent_id",

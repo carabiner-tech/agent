@@ -1,5 +1,5 @@
 pub mod api;
-mod app;
+
 pub mod dependencies;
 pub mod manifest;
 pub mod settings;
@@ -10,13 +10,13 @@ use std::{collections::HashMap, sync::Arc};
 use poem::{
     listener::TcpListener,
     middleware::{Cors, Tracing},
-    EndpointExt, Server,
+    EndpointExt, Route, Server,
 };
+use poem_openapi::OpenApiService;
 use tokio::sync::Mutex;
 use ws::manager::WsSessionManager;
 
-use crate::{app::build_app, settings::get_settings};
-
+use crate::{api::Api, manifest::get_manifest, settings::get_settings, ws::ws_upgrade};
 type ConversationSessionMap = Arc<Mutex<HashMap<String, uuid::Uuid>>>;
 
 #[tokio::main]
@@ -36,7 +36,18 @@ async fn main() {
     // session for that Agent. If the Agent disconnects, RPC endpoints will return 400's.
     let conversation_session_map: ConversationSessionMap = Arc::new(Mutex::new(HashMap::new()));
 
-    let app = build_app()
+    // Build up the API http routes / OpenAPI schema
+    let public_url = settings.public_url.join("/api").unwrap();
+    let api_service = OpenApiService::new(Api, "Plugin Server", "1.0").server(public_url);
+    let ui = api_service.swagger_ui();
+    let spec = api_service.spec_endpoint();
+
+    let app = Route::new()
+        .at("/openapi.json", spec)
+        .at("/.well-known/ai-plugin.json", serve_manifest)
+        .nest("/docs", ui)
+        .nest("/api", api_service)
+        .at("/ws", ws_upgrade)
         .with(Cors::new())
         .with(Tracing)
         .data(ws_session_manager)
@@ -46,4 +57,14 @@ async fn main() {
         .run(app)
         .await
         .unwrap();
+}
+
+// The manifest file tells ChatGPT where the OpenAPI schema is, what auth type the plugin uses,
+// and a system prompt the plugin can use to hint to the LLM how to use the plugin
+// (in conjunction with OpenAPI schema). This route not need to be in OpenAPI schema itself.
+#[poem::handler]
+fn serve_manifest() -> String {
+    let manifest = get_manifest();
+
+    serde_json::to_string_pretty(&manifest).unwrap()
 }
