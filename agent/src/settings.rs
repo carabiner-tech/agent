@@ -19,7 +19,7 @@ pub struct Settings {
 impl Settings {
     pub fn from_config() -> Self {
         let builder = config::Config::builder()
-            .add_source(config::Environment::with_prefix("AGENT").separator("_"))
+            .add_source(config::Environment::default())
             .build()
             .expect("Error building settings config from file and env");
         builder

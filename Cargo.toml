@@ -1,5 +1,5 @@
 [workspace]
-members = ["demo-server", "agent", "rpc"]
+members = ["poem-server", "agent", "rpc"]
 resolver = "2"
 
 [workspace.package]

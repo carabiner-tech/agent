@@ -82,7 +82,7 @@ impl ListFilesRequest {
                 files.push(File { name, size });
             }
         }
-
+        files.sort();
         Ok(ListFilesResponse { files, directories })
     }
 }
