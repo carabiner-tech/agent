@@ -1,0 +1,107 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Plugin Server",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000/api"
+        }
+    ],
+    "tags": [],
+    "paths": {
+        "/use_agent/{agent_id}": {
+            "post": {
+                "summary": "Set the active Agent to use for any RPC operations in this Conversation",
+                "parameters": [
+                    {
+                        "name": "agent_id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "in": "path",
+                        "required": true,
+                        "deprecated": false,
+                        "explode": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "text/plain; charset=utf-8": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "operationId": "use_agent"
+            }
+        },
+        "/current_time": {
+            "post": {
+                "summary": "RPC operation to get the current system time for the active Agent in the conversation",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "text/plain; charset=utf-8": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "operationId": "current_time"
+            }
+        },
+        "/list_files": {
+            "post": {
+                "summary": "RPC operation to list files in the current working directory or subdirectory for the active Agent",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ListFilesRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "text/plain; charset=utf-8": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "operationId": "list_files"
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ListFilesRequest": {
+                "type": "object",
+                "required": [
+                    "path"
+                ],
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "default": "."
+                    }
+                }
+            }
+        }
+    }
+}

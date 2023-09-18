@@ -7,6 +7,7 @@ pub mod ws;
 
 use std::{collections::HashMap, sync::Arc};
 
+use poem::endpoint::StaticFileEndpoint;
 use poem::{
     listener::TcpListener,
     middleware::{Cors, Tracing},
@@ -40,10 +41,11 @@ async fn main() {
     let public_url = settings.public_url.join("/api").unwrap();
     let api_service = OpenApiService::new(Api, "Plugin Server", "1.0").server(public_url);
     let ui = api_service.swagger_ui();
-    let spec = api_service.spec_endpoint();
+    let _spec = api_service.spec_endpoint();
 
     let app = Route::new()
-        .at("/openapi.json", spec)
+        //.at("/openapi.json", spec)
+        .at("/openapi.json", StaticFileEndpoint::new("openapi.json"))
         .at("/.well-known/ai-plugin.json", serve_manifest)
         .nest("/docs", ui)
         .nest("/api", api_service)

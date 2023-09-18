@@ -14,7 +14,7 @@ rust-version.workspace = true
 config = "0.13.3"
 futures-util = "0.3.28"
 lazy_static = "1.4.0"
-poem = { version = "1.3.58", features = ["websocket"] }
+poem = { version = "1.3.58", features = ["websocket", "static-files"] }
 poem-openapi = { version = "3.0.5", features = ["uuid", "swagger-ui"] }
 rpc = { version = "0.1.0", path = "../rpc" }
 serde = { version = "1.0.188", features = ["derive"] }
