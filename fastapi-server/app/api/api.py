@@ -9,8 +9,8 @@ from app.dependencies import (
 from app.rpc import (
     ListFilesRequest,
     ListFilesResponse,
-    SystemTimeRequest,
-    SystemTimeResponse,
+    ReadFileRequest,
+    ReadFileResponse,
 )
 from app.ws.manager import WsSessionManager
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,26 +35,19 @@ async def use_agent(
     return PlainTextResponse("Agent set for this conversation")
 
 
-@router.post("/current_time", operation_id="current_time")
-async def current_time(
-    conv: Conversation = Depends(get_conversation),
-) -> PlainTextResponse:
-    """Show the Agents current system time"""
-    req = SystemTimeRequest()
-    resp: SystemTimeResponse = await conv.session.send_rpc(req)
-    return PlainTextResponse(f"Current time is {resp.time}")
-
-
 @router.post("/list_files", operation_id="list_files")
 async def list_files(
     req: ListFilesRequest,
     conv: Conversation = Depends(get_conversation),
-) -> PlainTextResponse:
-    """List files in the current working directory or a subdirectory"""
-    resp = await conv.session.send_rpc(req)
-    text = ""
-    for file in resp.files:
-        text += f"{file.name} ({file.size} bytes)\n"
-    for dir in resp.directories:
-        text += f"{dir}/\n"
-    return PlainTextResponse(text)
+) -> ListFilesResponse:
+    """RPC operation to list files in the current working directory or subdirectory for the active Agent"""
+    return await conv.session.send_rpc(req)
+
+
+@router.post("/read_file", operation_id="read_file")
+async def read_file(
+    req: ReadFileRequest,
+    conv: Conversation = Depends(get_conversation),
+) -> ReadFileResponse:
+    """RPC operation to read the content of a file at a path on the Agents system"""
+    return await conv.session.send_rpc(req)
