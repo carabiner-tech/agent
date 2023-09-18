@@ -10,15 +10,12 @@
 //! in the OpenAPI schema.
 
 use poem::{web::Data, Error};
-use poem_openapi::{
-    param::Path,
-    payload::{Json, PlainText},
-    OpenApi,
-};
-use rpc::{ListFilesRequest, SystemTimeRequest};
+use poem_openapi::{param::Path, payload::PlainText, OpenApi};
+use rpc::{ListFilesRequest, ListFilesResponse, ReadFileRequest, ReadFileResponse};
 
 use crate::{
     dependencies::{Conversation, ConversationHeader},
+    rpc_payload::RpcPayload,
     ws::manager::WsSessionManager,
     ConversationSessionMap,
 };
@@ -64,40 +61,32 @@ impl Api {
         Ok(PlainText(s.to_string()))
     }
 
-    /// RPC operation to get the current system time for the active Agent in the conversation
-    #[oai(path = "/current_time", method = "post", operation_id = "current_time")]
-    async fn current_time(&self, conversation: Conversation) -> poem::Result<PlainText<String>> {
-        let req = SystemTimeRequest {};
-        let resp = conversation.session.send_rpc(req.into()).await;
-        match resp.into_system_time() {
-            Ok(resp) => {
-                let s = format!("Current time: {}", resp.time);
-                Ok(PlainText(s))
-            }
-            Err(e) => Err(rpc_error(e)),
-        }
-    }
-
     /// RPC operation to list files in the current working directory or subdirectory for the active Agent
     #[oai(path = "/list_files", method = "post", operation_id = "list_files")]
     async fn list_files(
         &self,
-        body: Json<ListFilesRequest>,
+        body: RpcPayload<ListFilesRequest>,
         conversation: Conversation,
-    ) -> poem::Result<PlainText<String>> {
+    ) -> poem::Result<RpcPayload<ListFilesResponse>> {
         let req = body.0;
         let resp = conversation.session.send_rpc(req.into()).await;
         match resp.into_list_files() {
-            Ok(resp) => {
-                let mut s = String::new();
-                for file in resp.files {
-                    s.push_str(&format!("{}: {} bytes\n", file.name, file.size));
-                }
-                for dir in resp.directories {
-                    s.push_str(&format!("{}: directory\n", dir));
-                }
-                Ok(PlainText(s))
-            }
+            Ok(resp) => Ok(RpcPayload(resp)),
+            Err(e) => Err(rpc_error(e)),
+        }
+    }
+
+    /// RPC operation to read the content of a file at a path on the Agents system
+    #[oai(path = "/read_file", method = "post", operation_id = "read_file")]
+    async fn read_file(
+        &self,
+        body: RpcPayload<ReadFileRequest>,
+        conversation: Conversation,
+    ) -> poem::Result<RpcPayload<ReadFileResponse>> {
+        let req = body.0;
+        let resp = conversation.session.send_rpc(req.into()).await;
+        match resp.into_read_file() {
+            Ok(resp) => Ok(RpcPayload(resp)),
             Err(e) => Err(rpc_error(e)),
         }
     }
