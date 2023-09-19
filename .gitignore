@@ -17,3 +17,4 @@ Cargo.lock
 fastapi-server/.venv
 __pycache__
 *.py[cod]
+bin
