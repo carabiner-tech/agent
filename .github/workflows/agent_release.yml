@@ -1,52 +1,32 @@
 name: Release Agent
 
 on:
-  release:
-    types:
-      - created
+  push:
+    tags:
+      - "agent-v*"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/agent-v')
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Extract Rust Version from Cargo.toml
-      id: rust_version
-      run: |
-        VERSION=$(grep "^\s*rust-version\s*=\s*\"" Cargo.toml | sed 's/[^"]*"\([^"]*\)"/\1/')
-        echo "Rust Version: $VERSION"
-        echo "::set-output name=version::$VERSION"
-
     - name: Setup Rust
       uses: actions-rs/toolchain@v1
       with:
+        toolchain: "1.72.0"
         profile: minimal
-        toolchain: ${{ steps.rust_version.outputs.version }}
-        override: true
 
     - name: Build Release
       run: |
         cd agent
         cargo build --release
 
-    - name: Extract Version from Tag
-      id: extract_version
-      run: echo "::set-output name=version::${GITHUB_REF#refs/tags/agent-v}"
-
-    - name: Extract Release Notes
-      id: extract_notes
-      run: |
-        VERSION=${{ steps.extract_version.outputs.version }}
-        awk -v version="$VERSION" '/## \[/{flag=0} /## \['$VERSION'\]/{flag=1} flag' agent/CHANGELOG.md > release_notes.md
-
     - name: Update GitHub Release
-      uses: github-release/github-release@v0.10.0
+      uses: softprops/action-gh-release@v1
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        action: edit
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.extract_version.outputs.version }}
-        body_path: release_notes.md
+        files: |
+          agent/target/release/agent
+
