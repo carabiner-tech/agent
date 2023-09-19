@@ -6,6 +6,9 @@ on:
       - "agent-v*"
 
 jobs:
+  permissions:
+    contents: write
+    
   build:
     runs-on: ubuntu-latest
     
