@@ -1,14 +1,14 @@
 name: Release Agent
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
       - "agent-v*"
 
 jobs:
-  permissions:
-    contents: write
-    
   build:
     runs-on: ubuntu-latest
     
