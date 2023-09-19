@@ -1,14 +1,15 @@
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io;
+use std::{fs, io};
 
-#[derive(Debug, Serialize, Deserialize)]
+use poem_openapi::Object;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct MoveFileRequest {
     pub src_path: String,
     pub dest_path: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct MoveFileResponse {
     pub success: bool,
 }
@@ -36,6 +37,7 @@ impl MoveFileRequest {
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::Write};
+
     use tempfile::TempDir;
 
     use super::*;

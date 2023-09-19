@@ -1,12 +1,14 @@
 use std::{fs, io};
 
+use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct CreateDirectoryRequest {
     pub path: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct CreateDirectoryResponse {
     pub success: bool,
 }

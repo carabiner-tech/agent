@@ -1,14 +1,18 @@
-use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{self, Write};
+use std::{
+    fs::File,
+    io::{self, Write},
+};
 
-#[derive(Debug, Serialize, Deserialize)]
+use poem_openapi::Object;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct CreateFileRequest {
     pub path: String,
     pub content: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Object)]
 pub struct CreateFileResponse {
     pub success: bool,
 }
@@ -32,6 +36,7 @@ impl CreateFileRequest {
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
+
     use tempfile::TempDir;
 
     use super::*;
