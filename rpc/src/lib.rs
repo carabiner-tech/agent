@@ -7,8 +7,12 @@ pub mod operations;
 // re-export of request/responses
 pub use operations::{
     fs::{
+        create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
+        create_file::{CreateFileRequest, CreateFileResponse},
         list_files::{ListFilesRequest, ListFilesResponse},
+        move_file::{MoveFileRequest, MoveFileResponse},
         read_file::{ReadFileRequest, ReadFileResponse},
+        remove_file::{RemoveFileRequest, RemoveFileResponse},
     },
     time::{SystemTimeRequest, SystemTimeResponse},
 };
@@ -20,7 +24,11 @@ pub struct RpcMessage<T> {
 }
 
 define_rpc!(
-    ListFiles(ListFilesRequest, ListFilesResponse),
+    CreateFile(CreateFileRequest, CreateFileResponse),
     ReadFile(ReadFileRequest, ReadFileResponse),
+    MoveFile(MoveFileRequest, MoveFileResponse),
+    RemoveFile(RemoveFileRequest, RemoveFileResponse),
+    ListFiles(ListFilesRequest, ListFilesResponse),
+    CreateDirectory(CreateDirectoryRequest, CreateDirectoryResponse),
     SystemTime(SystemTimeRequest, SystemTimeResponse)
 );
