@@ -19,5 +19,5 @@ rpc = { version = "0.1.0", path = "../rpc" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.106"
 tokio = { version = "1.32.0", features = ["full"] }
-tokio-tungstenite = "0.20.0"
+tokio-tungstenite = { version = "0.20.0", features = ["rustls-tls-native-roots"] }
 url = { version = "2.4.1", features = ["serde"] }
