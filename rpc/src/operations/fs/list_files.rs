@@ -90,15 +90,13 @@ impl ListFilesRequest {
             }
             directories.push(dir);
         }
+        // collect all files with their full relative path
         let mut files: Vec<String> = directories
             .iter()
             .flat_map(|dir| {
-                dir.files.iter().map(|path| {
-                    path.strip_prefix(&dir.path)
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_string()
-                })
+                dir.files
+                    .iter()
+                    .map(|path| path.to_string_lossy().to_string())
             })
             .collect();
         files.sort();
