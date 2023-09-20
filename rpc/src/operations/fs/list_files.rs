@@ -1,77 +1,131 @@
 //! List the files and subdirectories at a given path.
 //! Only allows relative paths from CWD where Agent started.
-use std::{cmp::Ordering, error::Error};
-
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
-use walkdir::WalkDir;
+use std::collections::VecDeque;
+use std::error::Error;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 #[oai(default)]
 pub struct ListFilesRequest {
     pub path: String,
     pub depth: i32,
+    pub ignore_hidden: bool,
 }
 
 impl Default for ListFilesRequest {
     fn default() -> Self {
         Self {
             path: ".".to_string(),
-            depth: -1,
+            depth: 0,
+            ignore_hidden: true,
         }
     }
+}
+
+struct Directory {
+    path: PathBuf,
+    files: Vec<String>,
+    depth: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct ListFilesResponse {
     pub files: Vec<String>,
-    pub untraversed_directories: Vec<String>,
+    pub untraversed: Vec<String>,
 }
 
 impl ListFilesResponse {
     pub fn format_as_tree(&self) -> String {
-        let mut output = String::new();
-        for file in &self.files {
-            output.push_str(&format!("{}\n", file));
+        "TODO".to_string()
+    }
+}
+
+fn is_hidden(path: &PathBuf) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
+
+fn process_directory_entry(
+    entry: fs::DirEntry,
+    dir: &mut Directory,
+    queue: &mut VecDeque<Directory>,
+    untraversed_dirs: &mut Vec<Directory>,
+    max_depth: i32,
+    ignore_hidden: bool,
+) {
+    let path = entry.path();
+
+    if ignore_hidden && is_hidden(&path) {
+        return;
+    }
+
+    if path.is_file() {
+        if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+            dir.files.push(file_name.to_string());
         }
-        for dir in &self.untraversed_directories {
-            output.push_str(&format!("{} [not traversed]\n", dir));
+    } else if path.is_dir() {
+        if dir.depth == max_depth {
+            untraversed_dirs.push(Directory {
+                path: path.clone(),
+                files: Vec::new(),
+                depth: dir.depth + 1,
+            });
+        } else {
+            queue.push_back(Directory {
+                path: path.clone(),
+                files: Vec::new(),
+                depth: dir.depth + 1,
+            });
         }
-        output
     }
 }
 
 impl ListFilesRequest {
     pub async fn process(self) -> Result<ListFilesResponse, Box<dyn Error>> {
         println!("Processing request: {:?}", self);
-        let mut files = vec![];
-        let mut untraversed_directories = vec![];
-
-        let walker = WalkDir::new(&self.path)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .skip(1); // Skip the root directory
-
-        for entry in walker {
-            let depth = entry.depth() as i32;
-            let path = entry.path().to_path_buf();
-
-            if depth > self.depth && self.depth != -1 {
-                untraversed_directories.push(path.to_str().unwrap().to_string());
+        let mut directories: Vec<Directory> = Vec::new();
+        let mut untraversed_dirs: Vec<Directory> = Vec::new();
+        let mut queue: VecDeque<Directory> = VecDeque::new();
+        queue.push_back(Directory {
+            path: self.path.into(),
+            files: Vec::new(),
+            depth: self.depth,
+        });
+        while let Some(mut dir) = queue.pop_front() {
+            if dir.depth > self.depth {
                 continue;
             }
 
-            if path.is_dir() {
-                continue;
+            if let Ok(entries) = fs::read_dir(&dir.path) {
+                for entry in entries.filter_map(Result::ok) {
+                    process_directory_entry(
+                        entry,
+                        &mut dir,
+                        &mut queue,
+                        &mut untraversed_dirs,
+                        self.depth,
+                        self.ignore_hidden,
+                    );
+                }
             }
 
-            files.push(path.to_str().unwrap().to_string());
+            directories.push(dir);
         }
+        let files = directories
+            .iter()
+            .flat_map(|dir| dir.files.clone())
+            .collect::<Vec<String>>();
+        let untraversed = untraversed_dirs
+            .iter()
+            .map(|dir| dir.path.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
 
-        Ok(ListFilesResponse {
-            files,
-            untraversed_directories,
-        })
+        Ok(ListFilesResponse { files, untraversed })
     }
 }
 
