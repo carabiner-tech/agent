@@ -53,12 +53,22 @@ fn is_hidden(path: &PathBuf) -> bool {
 
 impl ListFilesRequest {
     pub async fn process(self) -> Result<ListFilesResponse, Box<dyn Error>> {
-        println!("Processing request: {:?}", self);
+        let path = PathBuf::from(&self.path);
+        match path.is_relative() {
+            true => {}
+            false => {
+                if !path.starts_with(std::env::current_dir()?) {
+                    return Err(
+                        "Path must be a sub-directory of the current working directory".into(),
+                    );
+                }
+            }
+        }
         let mut directories: Vec<Directory> = Vec::new();
         let mut untraversed_dirs: Vec<PathBuf> = Vec::new();
         let mut queue: VecDeque<Directory> = VecDeque::new();
         queue.push_back(Directory {
-            path: self.path.into(),
+            path: path,
             files: Vec::new(),
             depth: 0,
         });
@@ -108,101 +118,64 @@ impl ListFilesRequest {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::{fs::File, io::Write};
+#[cfg(test)]
+mod tests {
+    use std::{fs, fs::File, io::Write};
 
-//     use tempfile::TempDir;
+    use tempfile::TempDir;
 
-//     use super::*;
+    use super::*;
 
-//     #[rstest::fixture]
-//     fn tmp_dir() -> TempDir {
-//         let dir = tempfile::tempdir().unwrap();
-//         std::env::set_current_dir(&dir).unwrap();
-//         dir
-//     }
+    #[rstest::fixture]
+    fn tmp_dir() -> TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        dir
+    }
 
-//     #[rstest::rstest]
-//     #[tokio::test]
-//     #[serial_test::serial]
-//     async fn test_req_path_has_files(_tmp_dir: TempDir) {
-//         let mut py_file = File::create("main.py").unwrap();
-//         let py_code = r#"print("hello world")"#;
-//         writeln!(py_file, "{}", py_code).unwrap();
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_nested_search(_tmp_dir: TempDir) {
+        // Create nested directories and files
+        fs::create_dir("level1").unwrap();
+        fs::create_dir("level1/level2").unwrap();
+        let mut file1 = File::create("level1/file1.txt").unwrap();
+        let mut file2 = File::create("level1/level2/file2.txt").unwrap();
+        writeln!(file1, "This is file1").unwrap();
+        writeln!(file2, "This is file2").unwrap();
 
-//         let mut rs_file = File::create("main.rs").unwrap();
-//         let rs_code = r#"fn main() { println!("hello world"); }"#;
-//         writeln!(rs_file, "{}", rs_code).unwrap();
+        // Create a ListFilesRequest with max_depth set to 2
+        let req = ListFilesRequest {
+            path: ".".to_string(),
+            max_depth: 1,
+            ignore_hidden: true,
+        };
 
-//         let req = ListFilesRequest::default();
-//         let mut resp = req.process().await.unwrap();
-//         assert_eq!(resp.files.len(), 2);
-//         // sort files by name before asserting order
-//         resp.files.sort();
-//         assert_eq!(resp.files[0].name, "main.py");
-//         assert_eq!(resp.files[0].size, 21);
-//         assert_eq!(resp.files[1].name, "main.rs");
-//         assert_eq!(resp.files[1].size, 39);
-//     }
+        // Process the request
+        let resp = req.process().await.unwrap();
 
-//     #[rstest::rstest]
-//     #[tokio::test]
-//     #[serial_test::serial]
-//     async fn test_req_path_has_sub_dir(_tmp_dir: TempDir) {
-//         std::fs::create_dir("test_subdir").unwrap();
-//         let req = ListFilesRequest::default();
-//         let resp = req.process().await.unwrap();
-//         assert_eq!(resp.directories.len(), 1);
-//         assert_eq!(resp.directories[0], "test_subdir");
-//     }
+        // Validate the response
+        assert_eq!(resp.files.len(), 1); // Should only find file1.txt
+        assert_eq!(resp.untraversed.len(), 1); // level2 should be untraversed
+        assert_eq!(resp.files[0], "./level1/file1.txt");
+        assert_eq!(resp.untraversed[0], "./level1/level2");
+    }
 
-//     #[rstest::rstest]
-//     #[tokio::test]
-//     #[serial_test::serial]
-//     async fn test_req_path_is_not_relative(_tmp_dir: TempDir) {
-//         let req = ListFilesRequest {
-//             path: "/tmp".to_string(),
-//         };
-//         let resp = req.process().await;
-//         assert!(resp.is_err());
-//         assert_eq!(
-//             resp.unwrap_err().to_string(),
-//             "Path must be a sub-directory of the current working directory"
-//         );
-//     }
-
-//     #[rstest::rstest]
-//     #[tokio::test]
-//     #[serial_test::serial]
-//     async fn test_req_path_is_a_file(_tmp_dir: TempDir) {
-//         let mut py_file = File::create("main.py").unwrap();
-//         let py_code = r#"print("hello world")"#;
-//         writeln!(py_file, "{}", py_code).unwrap();
-
-//         let req = ListFilesRequest {
-//             path: "main.py".to_string(),
-//         };
-//         let resp = req.process().await;
-//         assert!(resp.is_err());
-//         assert_eq!(
-//             resp.unwrap_err().to_string(),
-//             "Path is a file, not a directory: main.py"
-//         );
-//     }
-
-//     #[rstest::rstest]
-//     #[tokio::test]
-//     #[serial_test::serial]
-//     async fn test_req_path_does_not_exist(_tmp_dir: TempDir) {
-//         let req = ListFilesRequest {
-//             path: "does_not_exist".to_string(),
-//         };
-//         let resp = req.process().await;
-//         assert!(resp.is_err());
-//         assert_eq!(
-//             resp.unwrap_err().to_string(),
-//             "No such file or directory: does_not_exist"
-//         );
-//     }
-// }
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_err_on_non_relative_director(_tmp_dir: TempDir) {
+        let req = ListFilesRequest {
+            path: "/".to_string(),
+            max_depth: 1,
+            ignore_hidden: true,
+        };
+        let resp = req.process().await;
+        assert!(resp.is_err());
+        assert_eq!(
+            resp.unwrap_err().to_string(),
+            "Path must be a sub-directory of the current working directory"
+        );
+    }
+}
