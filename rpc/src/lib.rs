@@ -9,6 +9,7 @@ pub use operations::{
     fs::{
         create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
         create_file::{CreateFileRequest, CreateFileResponse},
+        edit_file::{EditFileRequest, EditFileResponse},
         list_files::{ListFilesRequest, ListFilesResponse},
         move_file::{MoveFileRequest, MoveFileResponse},
         read_file::{ReadFileRequest, ReadFileResponse},
@@ -26,6 +27,7 @@ pub struct RpcMessage<T> {
 define_rpc!(
     CreateFile(CreateFileRequest, CreateFileResponse),
     ReadFile(ReadFileRequest, ReadFileResponse),
+    EditFile(EditFileRequest, EditFileResponse),
     MoveFile(MoveFileRequest, MoveFileResponse),
     RemoveFile(RemoveFileRequest, RemoveFileResponse),
     ListFiles(ListFilesRequest, ListFilesResponse),
