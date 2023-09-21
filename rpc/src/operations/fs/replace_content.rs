@@ -49,7 +49,7 @@ impl ReplaceContentRequest {
         }
         lines.splice(start_line..end_line, self.content.split('\n'));
         let content = lines.join("\n");
-
+        tokio::fs::write(path, &content).await?;
         Ok(ReplaceContentResponse { content })
     }
 }
@@ -85,6 +85,9 @@ mod tests {
         };
         let response = request.process().await.unwrap();
         assert_eq!(response.content, "line1\nnew line\nline3\n\n".to_string());
+        // check file on disk
+        let content = tokio::fs::read_to_string(path).await.unwrap();
+        assert_eq!(content, "line1\nnew line\nline3\n\n".to_string());
     }
 
     #[rstest::rstest]

@@ -38,6 +38,7 @@ impl InsertContentRequest {
         }
         lines.insert(line_no, &self.content);
         let content = lines.join("\n");
+        tokio::fs::write(path, &content).await?;
         Ok(InsertContentResponse { content })
     }
 }
@@ -74,6 +75,9 @@ mod tests {
             response.content,
             "line1\nnew line\nline2\nline3".to_string()
         );
+        // check file on disk
+        let content = tokio::fs::read_to_string(path).await.unwrap();
+        assert_eq!(content, "line1\nnew line\nline2\nline3".to_string());
     }
 
     #[rstest::rstest]
