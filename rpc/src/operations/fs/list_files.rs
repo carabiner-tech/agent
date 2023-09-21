@@ -1,18 +1,19 @@
 //! List the files and subdirectories at a given path.
 //! Only allows relative paths from CWD where Agent started.
+use std::{collections::VecDeque, error::Error, fs, path::PathBuf};
+
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
-use std::error::Error;
-use std::fs;
-use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 #[oai(default)]
 pub struct ListFilesRequest {
     pub path: String,
     pub max_depth: i32,
-    pub ignore_hidden: bool,
+    // In preliminary testing, the LLM frequently leaves this out which causes a poem-openapi
+    // validation error. If I learn how to use defaults in poem-openapi like FastAPI / pydantic
+    // does, we can add this back in. For now it just hard-defaults to True in the impl
+    // pub ignore_hidden: bool,
 }
 
 impl Default for ListFilesRequest {
@@ -20,7 +21,7 @@ impl Default for ListFilesRequest {
         Self {
             path: ".".to_string(),
             max_depth: 3,
-            ignore_hidden: true,
+            // ignore_hidden: true,
         }
     }
 }
@@ -44,12 +45,13 @@ impl ListFilesResponse {
     }
 }
 
-fn is_hidden(path: &PathBuf) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|s| s.starts_with("."))
-        .unwrap_or(false)
-}
+// See Request struct comment
+// fn is_hidden(path: &PathBuf) -> bool {
+//     path.file_name()
+//         .and_then(|name| name.to_str())
+//         .map(|s| s.starts_with("."))
+//         .unwrap_or(false)
+// }
 
 impl ListFilesRequest {
     pub async fn process(self) -> Result<ListFilesResponse, Box<dyn Error>> {
@@ -80,9 +82,10 @@ impl ListFilesRequest {
             for entry in entries.filter_map(Result::ok) {
                 let path = entry.path();
 
-                if self.ignore_hidden && is_hidden(&path) {
-                    continue;
-                }
+                // See the request struct comment
+                // if self.ignore_hidden && is_hidden(&path) {
+                //     continue;
+                // }
                 if path.is_file() {
                     dir.files.push(path);
                 } else if path.is_dir() {
@@ -149,7 +152,8 @@ mod tests {
         let req = ListFilesRequest {
             path: ".".to_string(),
             max_depth: 1,
-            ignore_hidden: true,
+            // See Request struct comment
+            // ignore_hidden: true,
         };
 
         // Process the request
@@ -169,7 +173,8 @@ mod tests {
         let req = ListFilesRequest {
             path: "/".to_string(),
             max_depth: 1,
-            ignore_hidden: true,
+            // See Request struct comment
+            // ignore_hidden: true,
         };
         let resp = req.process().await;
         assert!(resp.is_err());
