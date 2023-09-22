@@ -9,6 +9,7 @@ pub use operations::{
     fs::{
         create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
         create_file::{CreateFileRequest, CreateFileResponse},
+        delete_content::{DeleteContentRequest, DeleteContentResponse},
         insert_content::{InsertContentRequest, InsertContentResponse},
         list_files::{ListFilesRequest, ListFilesResponse},
         move_file::{MoveFileRequest, MoveFileResponse},
@@ -37,6 +38,7 @@ define_rpc!(
     // edit file content
     InsertContent(InsertContentRequest, InsertContentResponse),
     ReplaceContent(ReplaceContentRequest, ReplaceContentResponse),
+    DeleteContent(DeleteContentRequest, DeleteContentResponse),
     // debug / demo
     SystemTime(SystemTimeRequest, SystemTimeResponse),
 );

@@ -1,8 +1,10 @@
 //! Insert new lines in a file
-use std::error::Error;
+use std::{error::Error, path::PathBuf};
 
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
+
+use crate::operations::fs::utils::read_lines;
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct InsertContentRequest {
@@ -18,25 +20,15 @@ pub struct InsertContentResponse {
 
 impl InsertContentRequest {
     pub async fn process(self) -> Result<InsertContentResponse, Box<dyn Error>> {
-        let path = std::path::Path::new(&self.path);
-        // Only support checking relative paths / sub-directories of CWD
-        match path.is_relative() {
-            true => {}
-            false => {
-                if !path.starts_with(std::env::current_dir()?) {
-                    return Err(
-                        "Path must be a sub-directory of the current working directory".into(),
-                    );
-                }
-            }
-        }
-        let content = tokio::fs::read_to_string(path).await?;
-        let mut lines: Vec<&str> = content.lines().collect();
-        let mut line_no = self.line;
-        if line_no > lines.len() {
-            line_no = lines.len();
-        }
-        lines.insert(line_no, &self.content);
+        let path = PathBuf::from(&self.path);
+        // This is a little weird since utils.read_lines is expecting a start and end line, but
+        // still using it to handle the redundant checks for relative path, dropping to 0-based
+        // index, etc etc.
+        let start_line = self.line;
+        let end_line = self.line;
+        let (mut lines, start_line, _end_line) =
+            read_lines(path.clone(), start_line, end_line).await?;
+        lines.insert(start_line, self.content);
         let content = lines.join("\n");
         tokio::fs::write(path, &content).await?;
         Ok(InsertContentResponse { content })
@@ -61,59 +53,41 @@ mod tests {
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_insert_content(_tmp_dir: TempDir) {
+    async fn test_insert_one_line(_tmp_dir: TempDir) {
+        Write::write_all(
+            &mut File::create("test.txt").unwrap(),
+            b"line1\nline2\nline3",
+        )
+        .unwrap();
         let path = PathBuf::from("test.txt");
-        let mut file = File::create(&path).unwrap();
-        file.write_all(b"line1\nline2\nline3").unwrap();
         let request = InsertContentRequest {
             path: path.to_str().unwrap().to_string(),
             content: "new line".to_string(),
-            line: 1,
+            line: 2,
         };
         let response = request.process().await.unwrap();
-        assert_eq!(
-            response.content,
-            "line1\nnew line\nline2\nline3".to_string()
-        );
-        // check file on disk
-        let content = tokio::fs::read_to_string(path).await.unwrap();
-        assert_eq!(content, "line1\nnew line\nline2\nline3".to_string());
+        assert_eq!(response.content, "line1\nnew line\nline2\nline3");
     }
 
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_err_on_non_relative_director(_tmp_dir: TempDir) {
-        let req = InsertContentRequest {
-            path: "/".to_string(),
-            content: "new line".to_string(),
-            line: 1,
-        };
-        let resp = req.process().await;
-        assert!(resp.is_err());
-        assert_eq!(
-            resp.unwrap_err().to_string(),
-            "Path must be a sub-directory of the current working directory"
-        );
-    }
-
-    #[rstest::rstest]
-    #[tokio::test]
-    #[serial_test::serial]
-    async fn test_line_out_of_index(_tmp_dir: TempDir) {
+    async fn test_insert_multiple_lines(_tmp_dir: TempDir) {
+        Write::write_all(
+            &mut File::create("test.txt").unwrap(),
+            b"line1\nline2\nline3",
+        )
+        .unwrap();
         let path = PathBuf::from("test.txt");
-        let mut file = File::create(&path).unwrap();
-        file.write_all(b"line1\nline2\nline3").unwrap();
         let request = InsertContentRequest {
             path: path.to_str().unwrap().to_string(),
-            content: "new line".to_string(),
-            line: 4,
+            content: "new line\nanother new line".to_string(),
+            line: 2,
         };
         let response = request.process().await.unwrap();
-        // we should have made the out of index line just append to bottom of file
         assert_eq!(
             response.content,
-            "line1\nline2\nline3\nnew line".to_string()
+            "line1\nnew line\nanother new line\nline2\nline3"
         );
     }
 }

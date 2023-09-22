@@ -1,4 +1,6 @@
-//! Replace content of a file between a start and end line
+//! Delete one or more lines in a file.
+//! Using one-based start/end lines because that's the most common approach in text editors
+//! and probably the LLM training set
 use std::{error::Error, path::PathBuf};
 
 use poem_openapi::Object;
@@ -7,20 +9,19 @@ use serde::{Deserialize, Serialize};
 use crate::operations::fs::utils::read_lines;
 
 #[derive(Debug, Serialize, Deserialize, Object)]
-pub struct ReplaceContentRequest {
+pub struct DeleteContentRequest {
     pub path: String,
-    pub content: String,
     pub start_line: usize,
-    pub end_line: Option<usize>, // Empty to replace just a single line
+    pub end_line: Option<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Object)]
-pub struct ReplaceContentResponse {
+pub struct DeleteContentResponse {
     pub content: String,
 }
 
-impl ReplaceContentRequest {
-    pub async fn process(self) -> Result<ReplaceContentResponse, Box<dyn Error>> {
+impl DeleteContentRequest {
+    pub async fn process(self) -> Result<DeleteContentResponse, Box<dyn Error>> {
         let path = PathBuf::from(&self.path);
         let end_line = match self.end_line {
             Some(end_line) => end_line,
@@ -30,16 +31,15 @@ impl ReplaceContentRequest {
         let (mut lines, start_line, end_line) =
             read_lines(path.clone(), self.start_line, end_line).await?;
 
-        let new_lines: Vec<String> = self.content.lines().map(|l| l.to_string()).collect();
-        // splice in new lines, use inclusive range (=end_line)
-        lines.splice(start_line..=end_line, new_lines);
+        lines.drain(start_line..=end_line);
         let content = lines.join("\n");
         tokio::fs::write(path, &content).await?;
 
-        Ok(ReplaceContentResponse { content })
+        Ok(DeleteContentResponse { content })
     }
 }
 
+#[cfg(test)]
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::Write};
@@ -58,60 +58,39 @@ mod tests {
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_replace_one_line_content(_tmp_dir: TempDir) {
+    async fn test_delete_one_line(_tmp_dir: TempDir) {
         Write::write_all(
             &mut File::create("test.txt").unwrap(),
             b"line1\nline2\nline3\n",
         )
         .unwrap();
-        let request = ReplaceContentRequest {
+        let request = DeleteContentRequest {
             path: "test.txt".to_string(),
-            content: "new line".to_string(),
-            start_line: 2, // should replace line2
+            start_line: 2,
             end_line: None,
         };
         let response = request.process().await.unwrap();
-        assert_eq!(response.content, "line1\nnew line\nline3\n");
+        assert_eq!(response.content, "line1\nline3\n");
         // Make sure it was written to disk
         let content = tokio::fs::read_to_string("test.txt").await.unwrap();
-        assert_eq!(content, "line1\nnew line\nline3\n");
+        assert_eq!(content, "line1\nline3\n");
     }
 
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_replace_one_line_with_two(_tmp_dir: TempDir) {
+    async fn test_delete_two_lines(_tmp_dir: TempDir) {
         Write::write_all(
             &mut File::create("test.txt").unwrap(),
             b"line1\nline2\nline3\n",
         )
         .unwrap();
-        let request = ReplaceContentRequest {
+        let request = DeleteContentRequest {
             path: "test.txt".to_string(),
-            content: "new line\nnew line2".to_string(),
-            start_line: 2, // should replace line2
-            end_line: None,
-        };
-        let response = request.process().await.unwrap();
-        assert_eq!(response.content, "line1\nnew line\nnew line2\nline3\n");
-    }
-
-    #[rstest::rstest]
-    #[tokio::test]
-    #[serial_test::serial]
-    async fn test_replace_two_lines_with_one(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
-        let request = ReplaceContentRequest {
-            path: "test.txt".to_string(),
-            content: "new line".to_string(),
             start_line: 2,
             end_line: Some(3),
         };
         let response = request.process().await.unwrap();
-        assert_eq!(response.content, "line1\nnew line\n");
+        assert_eq!(response.content, "line1\n");
     }
 }
