@@ -6,7 +6,7 @@ use std::{error::Error, path::PathBuf};
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
-use crate::operations::fs::utils::read_lines;
+use crate::operations::fs::utils::{ensure_relative, read_lines};
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct DeleteContentRequest {
@@ -22,14 +22,25 @@ pub struct DeleteContentResponse {
 
 impl DeleteContentRequest {
     pub async fn process(self) -> Result<DeleteContentResponse, Box<dyn Error>> {
-        let path = PathBuf::from(&self.path);
-        let end_line = match self.end_line {
-            Some(end_line) => end_line,
-            None => self.start_line,
-        };
+        let path = ensure_relative(PathBuf::from(self.path)).await?;
+        let mut lines = read_lines(&path).await?;
 
-        let (mut lines, start_line, end_line) =
-            read_lines(path.clone(), self.start_line, end_line).await?;
+        // First sanity check the start line
+        let start_line = match self.start_line {
+            0 => 0,
+            line if line - 1 > lines.len() => {
+                return Err("Start line is out of index".into());
+            }
+            line => line - 1,
+        };
+        // Figure out end line
+        let end_line = match self.end_line {
+            Some(end_line) => match end_line {
+                line if line > lines.len() => lines.len(),
+                line => line - 1,
+            },
+            None => start_line,
+        };
 
         lines.drain(start_line..=end_line);
         let content = lines.join("\n");
@@ -59,11 +70,8 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_delete_one_line(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
         let request = DeleteContentRequest {
             path: "test.txt".to_string(),
             start_line: 2,
@@ -80,11 +88,8 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_delete_two_lines(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
         let request = DeleteContentRequest {
             path: "test.txt".to_string(),
             start_line: 2,

@@ -4,7 +4,7 @@ use std::{error::Error, path::PathBuf};
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
-use crate::operations::fs::utils::read_lines;
+use crate::operations::fs::utils::{ensure_relative, read_lines};
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct InsertContentRequest {
@@ -20,15 +20,19 @@ pub struct InsertContentResponse {
 
 impl InsertContentRequest {
     pub async fn process(self) -> Result<InsertContentResponse, Box<dyn Error>> {
-        let path = PathBuf::from(&self.path);
-        // This is a little weird since utils.read_lines is expecting a start and end line, but
-        // still using it to handle the redundant checks for relative path, dropping to 0-based
-        // index, etc etc.
-        let start_line = self.line;
-        let end_line = self.line;
-        let (mut lines, start_line, _end_line) =
-            read_lines(path.clone(), start_line, end_line).await?;
-        lines.insert(start_line, self.content);
+        let path = ensure_relative(PathBuf::from(self.path)).await?;
+        let mut lines = read_lines(&path).await?;
+        // Figure out where to insert the new content now
+        // If line is 0, the LLM incorrectly sent a 0-indexed line number but we should just handle
+        // it, the LLM wants to prepend content to top of file
+        // If the line is out of index, the LLM intended to append to bottom of file
+        let line = match self.line {
+            0 => 0,
+            line if line > lines.len() => lines.len(),
+            line => line - 1,
+        };
+
+        lines.insert(line, self.content);
         let content = lines.join("\n");
         tokio::fs::write(path, &content).await?;
         Ok(InsertContentResponse { content })
@@ -37,7 +41,7 @@ impl InsertContentRequest {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Write, path::PathBuf};
+    use std::{fs::File, io::Write};
 
     use tempfile::TempDir;
 
@@ -54,33 +58,28 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_insert_one_line(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3",
-        )
-        .unwrap();
-        let path = PathBuf::from("test.txt");
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
         let request = InsertContentRequest {
-            path: path.to_str().unwrap().to_string(),
+            path: "test.txt".to_string(),
             content: "new line".to_string(),
             line: 2,
         };
         let response = request.process().await.unwrap();
         assert_eq!(response.content, "line1\nnew line\nline2\nline3");
+        // Make sure it was written to disk
+        let content_on_disk = std::fs::read_to_string("test.txt").unwrap();
+        assert_eq!(content_on_disk, "line1\nnew line\nline2\nline3");
     }
 
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
     async fn test_insert_multiple_lines(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3",
-        )
-        .unwrap();
-        let path = PathBuf::from("test.txt");
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
         let request = InsertContentRequest {
-            path: path.to_str().unwrap().to_string(),
+            path: "test.txt".to_string(),
             content: "new line\nanother new line".to_string(),
             line: 2,
         };

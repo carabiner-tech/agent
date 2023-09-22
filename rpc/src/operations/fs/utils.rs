@@ -1,21 +1,17 @@
 use std::{error::Error, path::PathBuf};
 
-pub(crate) async fn read_lines(
-    path: PathBuf,
-    start_line: usize,
-    end_line: usize,
-) -> Result<(Vec<String>, usize, usize), Box<dyn Error>> {
-    // First check - is the path relative or in CWD?
+pub(crate) async fn ensure_relative(path: PathBuf) -> Result<PathBuf, Box<dyn Error>> {
     match path.is_relative() {
-        true => {}
-        false => {
-            if !path.starts_with(std::env::current_dir()?) {
-                return Err("Path must be a sub-directory of the current working directory".into());
-            }
-        }
+        true => Ok(path),
+        false => match path.strip_prefix(std::env::current_dir()?) {
+            Ok(relative_path) => Ok(relative_path.to_path_buf()),
+            Err(_) => Err("Path must be a sub-directory of the current working directory".into()),
+        },
     }
+}
 
-    // Second check - does file exist and can be read?
+pub(crate) async fn read_lines(path: &PathBuf) -> Result<Vec<String>, Box<dyn Error>> {
+    // Bubble up exception if file isn't found
     let content = tokio::fs::read_to_string(path).await?;
 
     // Gotcha here: .lines() will strip trailing \n so foo\nbar\nbaz is the same as foo\nbar\nbaz\n
@@ -24,23 +20,7 @@ pub(crate) async fn read_lines(
     if has_trailing_newline {
         lines.push("".into());
     }
-
-    // Third check, are start / end lines within index? Don't want operations to panic.
-    // Note the incoming start / end values are 1-indexed because LLMs work better calling ops
-    // that deal with line numbers when we let them start at 1, but we want to downcast to 0-indexed
-    // here for index check and for the operations to use downstream.
-    let start_line = start_line - 1;
-    let end_line = end_line - 1;
-    if start_line > end_line {
-        return Err("End line is greater than Start line".into());
-    }
-    if start_line >= lines.len() {
-        return Err("Start line is out of index".into());
-    }
-    if end_line >= lines.len() {
-        return Err("End line is out of index".into());
-    }
-    Ok((lines, start_line, end_line))
+    Ok(lines)
 }
 
 #[cfg(test)]
@@ -61,57 +41,14 @@ mod tests {
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_no_trailing_new_line(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3",
-        )
-        .unwrap();
-        let path = PathBuf::from("test.txt");
-        let (lines, _start_line, _end_line) = read_lines(path, 1, 2).await.unwrap();
-        assert_eq!(lines.len(), 3);
-        assert_eq!(lines.last().unwrap(), "line3")
-    }
+    async fn test_ensure_relative(_tmp_dir: TempDir) {
+        let happy_path = ensure_relative(PathBuf::from("test.txt")).await;
+        assert!(happy_path.is_ok());
 
-    #[rstest::rstest]
-    #[tokio::test]
-    #[serial_test::serial]
-    async fn test_preserves_trailing_new_lines(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
-        let path = PathBuf::from("test.txt");
-        let (lines, _start_line, _end_line) = read_lines(path, 1, 2).await.unwrap();
-        assert_eq!(lines.len(), 4);
-        assert_eq!(lines[3], "");
-    }
-
-    #[rstest::rstest]
-    #[tokio::test]
-    #[serial_test::serial]
-    async fn test_preserves_inline_whitespace(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"  line1\nline2  \n  line3  ",
-        )
-        .unwrap();
-        let path = PathBuf::from("test.txt");
-        let (lines, _start_line, _end_line) = read_lines(path, 1, 2).await.unwrap();
-        assert_eq!(lines[0], "  line1");
-        assert_eq!(lines[1], "line2  ");
-        assert_eq!(lines[2], "  line3  ");
-    }
-
-    #[rstest::rstest]
-    #[tokio::test]
-    #[serial_test::serial]
-    async fn test_err_not_subdirectory(_tmp_dir: TempDir) {
-        let path = PathBuf::from("/etc/test.txt");
-        let err = read_lines(path, 1, 2).await.unwrap_err();
+        let unhappy_path = ensure_relative(PathBuf::from("/etc/test.txt")).await;
+        assert!(unhappy_path.is_err());
         assert_eq!(
-            err.to_string(),
+            unhappy_path.unwrap_err().to_string(),
             "Path must be a sub-directory of the current working directory"
         );
     }
@@ -119,16 +56,40 @@ mod tests {
     #[rstest::rstest]
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_err_out_of_index(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3",
-        )
-        .unwrap();
+    async fn test_read_lines_no_trailing_line(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
         let path = PathBuf::from("test.txt");
-        let start_line = 1;
-        let end_line = 4;
-        let err = read_lines(path, start_line, end_line).await.unwrap_err();
-        assert_eq!(err.to_string(), "End line is out of index");
+        let lines = read_lines(&path).await.unwrap();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "line1");
+        assert_eq!(lines[2], "line3")
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_read_lines_with_trailing_lines(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n\n").unwrap();
+        let path = PathBuf::from("test.txt");
+        let lines = read_lines(&path).await.unwrap();
+        assert_eq!(lines.len(), 5);
+        assert_eq!(lines[2], "line3");
+        assert_eq!(lines[3], "");
+        assert_eq!(lines[4], "")
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_preserves_inline_whitespace(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"  line1\nline2  \n  line3  ").unwrap();
+        let path = PathBuf::from("test.txt");
+        let lines = read_lines(&path).await.unwrap();
+        assert_eq!(lines[0], "  line1");
+        assert_eq!(lines[1], "line2  ");
+        assert_eq!(lines[2], "  line3  ");
     }
 }

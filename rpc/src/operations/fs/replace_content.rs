@@ -4,7 +4,7 @@ use std::{error::Error, path::PathBuf};
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
-use crate::operations::fs::utils::read_lines;
+use crate::operations::fs::utils::{ensure_relative, read_lines};
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct ReplaceContentRequest {
@@ -21,16 +21,33 @@ pub struct ReplaceContentResponse {
 
 impl ReplaceContentRequest {
     pub async fn process(self) -> Result<ReplaceContentResponse, Box<dyn Error>> {
-        let path = PathBuf::from(&self.path);
-        let end_line = match self.end_line {
-            Some(end_line) => end_line,
-            None => self.start_line,
+        let path = ensure_relative(PathBuf::from(self.path)).await?;
+        let mut lines = read_lines(&path).await?;
+
+        // First sanity check the start line
+        // - help the LLM if it sent 0, clearly trying to change the top line in the file
+        // - raise error if start line is out of index after downcasting to 0-based index
+        let start_line = match self.start_line {
+            0 => 0,
+            line if line - 1 > lines.len() => {
+                return Err("Start line is out of index".into());
+            }
+            line => line - 1,
         };
 
-        let (mut lines, start_line, end_line) =
-            read_lines(path.clone(), self.start_line, end_line).await?;
+        // Figure out end line
+        // - if it wasn't passed in, make it same as start line to replace a single line
+        // - if it out of index, make it the last line in the file
+        let end_line = match self.end_line {
+            Some(end_line) => match end_line {
+                line if line > lines.len() => lines.len(),
+                line => line - 1,
+            },
+            None => start_line,
+        };
 
-        let new_lines: Vec<String> = self.content.lines().map(|l| l.to_string()).collect();
+        let new_lines: Vec<String> = self.content.split("\n").map(|l| l.to_string()).collect();
+
         // splice in new lines, use inclusive range (=end_line)
         lines.splice(start_line..=end_line, new_lines);
         let content = lines.join("\n");
@@ -59,15 +76,12 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_replace_one_line_content(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
         let request = ReplaceContentRequest {
             path: "test.txt".to_string(),
             content: "new line".to_string(),
-            start_line: 2, // should replace line2
+            start_line: 2,
             end_line: None,
         };
         let response = request.process().await.unwrap();
@@ -81,15 +95,12 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_replace_one_line_with_two(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
         let request = ReplaceContentRequest {
             path: "test.txt".to_string(),
             content: "new line\nnew line2".to_string(),
-            start_line: 2, // should replace line2
+            start_line: 2,
             end_line: None,
         };
         let response = request.process().await.unwrap();
@@ -100,11 +111,8 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_replace_two_lines_with_one(_tmp_dir: TempDir) {
-        Write::write_all(
-            &mut File::create("test.txt").unwrap(),
-            b"line1\nline2\nline3\n",
-        )
-        .unwrap();
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
         let request = ReplaceContentRequest {
             path: "test.txt".to_string(),
             content: "new line".to_string(),
