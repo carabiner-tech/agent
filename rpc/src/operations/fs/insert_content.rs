@@ -28,7 +28,7 @@ impl InsertContentRequest {
         // If the line is out of index, the LLM intended to append to bottom of file
         let line = match self.line {
             0 => 0,
-            line if line > lines.len() => lines.len(),
+            line if line >= lines.len() => lines.len(),
             line => line - 1,
         };
 
@@ -88,5 +88,35 @@ mod tests {
             response.content,
             "line1\nnew line\nanother new line\nline2\nline3"
         );
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_line_is_zero(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
+        let request = InsertContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            line: 0,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "new line\nline1\nline2\nline3");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_line_is_out_of_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
+        let request = InsertContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            line: 5,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line1\nline2\nline3\nnew line");
     }
 }

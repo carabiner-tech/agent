@@ -28,15 +28,15 @@ impl DeleteContentRequest {
         // First sanity check the start line
         let start_line = match self.start_line {
             0 => 0,
-            line if line - 1 > lines.len() => {
-                return Err("Start line is out of index".into());
-            }
             line => line - 1,
         };
-        // Figure out end line
+        if start_line >= lines.len() {
+            return Err("Start line is out of index".into());
+        }
+        // Figure out end line, if it's out of index set it to the last line in the file
         let end_line = match self.end_line {
             Some(end_line) => match end_line {
-                line if line > lines.len() => lines.len(),
+                line if line >= lines.len() => lines.len() - 1,
                 line => line - 1,
             },
             None => start_line,
@@ -50,7 +50,6 @@ impl DeleteContentRequest {
     }
 }
 
-#[cfg(test)]
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::Write};
@@ -97,5 +96,69 @@ mod tests {
         };
         let response = request.process().await.unwrap();
         assert_eq!(response.content, "line1\n");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_out_of_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
+        let request = DeleteContentRequest {
+            path: "test.txt".to_string(),
+            start_line: 5,
+            end_line: None,
+        };
+        let response = request.process().await;
+        assert!(response.is_err());
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            "Start line is out of index"
+        );
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_is_zero(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
+        let request = DeleteContentRequest {
+            path: "test.txt".to_string(),
+            start_line: 0,
+            end_line: None,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line2\nline3\n");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_is_last_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
+        let request = DeleteContentRequest {
+            path: "test.txt".to_string(),
+            start_line: 3,
+            end_line: None,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line1\nline2");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_end_is_out_of_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
+        let request = DeleteContentRequest {
+            path: "test.txt".to_string(),
+            start_line: 2,
+            end_line: Some(5),
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line1");
     }
 }

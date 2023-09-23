@@ -29,18 +29,18 @@ impl ReplaceContentRequest {
         // - raise error if start line is out of index after downcasting to 0-based index
         let start_line = match self.start_line {
             0 => 0,
-            line if line - 1 > lines.len() => {
-                return Err("Start line is out of index".into());
-            }
             line => line - 1,
         };
+        if start_line >= lines.len() {
+            return Err("Start line is out of index".into());
+        }
 
         // Figure out end line
         // - if it wasn't passed in, make it same as start line to replace a single line
         // - if it out of index, make it the last line in the file
         let end_line = match self.end_line {
             Some(end_line) => match end_line {
-                line if line > lines.len() => lines.len(),
+                line if line >= lines.len() => lines.len() - 1,
                 line => line - 1,
             },
             None => start_line,
@@ -121,5 +121,73 @@ mod tests {
         };
         let response = request.process().await.unwrap();
         assert_eq!(response.content, "line1\nnew line\n");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_is_zero(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
+        let request = ReplaceContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            start_line: 0,
+            end_line: None,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "new line\nline2\nline3\n");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_is_last_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
+        let request = ReplaceContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            start_line: 3,
+            end_line: None,
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line1\nline2\nnew line");
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_start_is_out_of_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3").unwrap();
+        let request = ReplaceContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            start_line: 4,
+            end_line: None,
+        };
+        let response = request.process().await;
+        assert!(response.is_err());
+        assert_eq!(
+            response.unwrap_err().to_string(),
+            "Start line is out of index"
+        );
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_end_is_out_of_index(_tmp_dir: TempDir) {
+        let mut f = File::create("test.txt").unwrap();
+        f.write_all(b"line1\nline2\nline3\n").unwrap();
+        let request = ReplaceContentRequest {
+            path: "test.txt".to_string(),
+            content: "new line".to_string(),
+            start_line: 3,
+            end_line: Some(10),
+        };
+        let response = request.process().await.unwrap();
+        assert_eq!(response.content, "line1\nline2\nnew line");
     }
 }
