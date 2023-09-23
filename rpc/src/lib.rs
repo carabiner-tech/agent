@@ -6,6 +6,7 @@ pub mod operations;
 
 // re-export of request/responses
 pub use operations::{
+    commands::run_python::{RunPythonRequest, RunPythonResponse},
     fs::{
         create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
         create_file::{CreateFileRequest, CreateFileResponse},
@@ -41,4 +42,6 @@ define_rpc!(
     DeleteContent(DeleteContentRequest, DeleteContentResponse),
     // debug / demo
     SystemTime(SystemTimeRequest, SystemTimeResponse),
+    // commands
+    RunPython(RunPythonRequest, RunPythonResponse),
 );

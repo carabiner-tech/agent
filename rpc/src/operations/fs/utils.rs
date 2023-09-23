@@ -1,6 +1,6 @@
 use std::{error::Error, path::PathBuf};
 
-pub(crate) async fn ensure_relative(path: PathBuf) -> Result<PathBuf, Box<dyn Error>> {
+pub async fn ensure_relative(path: PathBuf) -> Result<PathBuf, Box<dyn Error>> {
     match path.is_relative() {
         true => Ok(path),
         false => match path.strip_prefix(std::env::current_dir()?) {
@@ -10,7 +10,7 @@ pub(crate) async fn ensure_relative(path: PathBuf) -> Result<PathBuf, Box<dyn Er
     }
 }
 
-pub(crate) async fn read_lines(path: &PathBuf) -> Result<Vec<String>, Box<dyn Error>> {
+pub async fn read_lines(path: &PathBuf) -> Result<Vec<String>, Box<dyn Error>> {
     // Bubble up exception if file isn't found
     let content = tokio::fs::read_to_string(path).await?;
 
