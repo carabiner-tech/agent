@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use std::process::Stdio;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
@@ -29,13 +27,11 @@ async fn read_stream<R: AsyncRead + Unpin>(mut reader: R) -> Vec<u8> {
 pub async fn run_command_with_timeout(
     command: &str,
     args: &[&str],
-    env_vars: HashMap<String, String>,
     timeout_duration: Duration,
 ) -> Result<CommandResult, std::io::Error> {
     // Setup the command to spawn
     let mut cmd = Command::new(command);
     cmd.args(args);
-    cmd.envs(env_vars);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     cmd.kill_on_drop(true);
@@ -56,6 +52,7 @@ pub async fn run_command_with_timeout(
             })
         }
         Err(_) => {
+            child.kill().await?;
             let stdout = String::from_utf8(stdout_handle.await.unwrap()).unwrap();
             let stderr = String::from_utf8(stderr_handle.await.unwrap()).unwrap();
             Ok(CommandResult {
@@ -64,5 +61,66 @@ pub async fn run_command_with_timeout(
                 exit_status: None,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::Write;
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[rstest::fixture]
+    fn tmp_dir() -> TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        dir
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_script_full_duration(_tmp_dir: TempDir) {
+        let mut f = File::create("test.sh").unwrap();
+        f.write_all(b"#!/bin/bash\necho 'Started'\nsleep 0.05\necho 'Finished'")
+            .unwrap();
+        let cmd = "bash";
+        let args = vec!["test.sh"];
+        let timeout_duration = Duration::from_secs(1);
+        let CommandResult {
+            stdout,
+            stderr,
+            exit_status,
+        } = run_command_with_timeout(cmd, &args, timeout_duration)
+            .await
+            .unwrap();
+        assert_eq!(stdout, "Started\nFinished\n");
+        assert_eq!(stderr, "");
+        assert_eq!(exit_status, Some(0));
+    }
+
+    #[rstest::rstest]
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_script_timeout(_tmp_dir: TempDir) {
+        let mut f = File::create("test.sh").unwrap();
+        f.write_all(b"#!/bin/bash\necho 'Started'\nsleep 0.05\necho 'Finished'")
+            .unwrap();
+        let cmd = "bash";
+        let args = vec!["test.sh"];
+        let timeout_duration = Duration::from_millis(10);
+        let CommandResult {
+            stdout,
+            stderr,
+            exit_status,
+        } = run_command_with_timeout(cmd, &args, timeout_duration)
+            .await
+            .unwrap();
+        assert_eq!(stdout, "Started\n");
+        assert_eq!(stderr, "");
+        assert_eq!(exit_status, None);
     }
 }

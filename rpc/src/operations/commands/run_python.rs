@@ -21,15 +21,13 @@ impl RunPythonRequest {
     pub async fn process(self) -> Result<RunPythonResponse, Box<dyn Error>> {
         let path = ensure_relative(PathBuf::from(self.path)).await?;
         let cmd = "python";
-        let args = vec![path.to_str().unwrap()];
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PYTHONUNBUFFERED".to_string(), "1".to_string());
+        let args = vec!["-u", path.to_str().unwrap()];
         let timeout_duration = Duration::from_secs(5);
         let CommandResult {
             stdout,
             stderr,
             exit_status,
-        } = run_command_with_timeout(cmd, &args, env_vars, timeout_duration).await?;
+        } = run_command_with_timeout(cmd, &args, timeout_duration).await?;
         Ok(RunPythonResponse {
             stdout,
             stderr,
