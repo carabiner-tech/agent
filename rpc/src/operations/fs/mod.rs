@@ -1,6 +1,7 @@
 pub mod create_directory;
 pub mod create_file;
 pub mod delete_content;
+pub mod diff;
 pub mod insert_content;
 pub mod list_files;
 pub mod move_file;

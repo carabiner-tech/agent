@@ -2,7 +2,7 @@ use crate::operations::commands::utils::{run_command_with_timeout, CommandResult
 use crate::operations::fs::utils::ensure_relative;
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, error::Error, path::PathBuf};
+use std::{error::Error, path::PathBuf};
 use tokio::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Object)]

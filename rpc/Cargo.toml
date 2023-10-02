@@ -13,7 +13,7 @@ rust-version.workspace = true
 [dependencies]
 async-trait = "0.1.73"
 chrono = { version = "0.4.30", features = ["serde"] }
-diffy = "0.3.0"
+diffy = { git = "https://github.com/carabiner-tech/diffy", version = "0.3.0" }
 enum-as-inner = "0.6.0"
 poem-openapi = "3.0.5"
 serde = { version = "1.0.188", features = ["derive"] }

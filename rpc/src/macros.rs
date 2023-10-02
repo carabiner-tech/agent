@@ -2,14 +2,16 @@
 macro_rules! define_rpc {
     ($($variant:ident($req_type:ty, $res_type:ty)),* $(,)?) => {
         #[derive(Debug, Serialize, Deserialize)]
+        #[serde(tag = "type")]
         pub enum RpcRequest {
             $($variant($req_type),)*
         }
 
         #[derive(Debug, Serialize, Deserialize, EnumAsInner)]
+        #[serde(tag = "type")]
         pub enum RpcResponse {
             $($variant($res_type),)*
-            RpcError(String),
+            RpcError {e: String},
         }
 
         impl RpcRequest {
@@ -19,7 +21,7 @@ macro_rules! define_rpc {
                         RpcRequest::$variant(req) => {
                             match req.process().await {
                                 Ok(resp) => RpcResponse::$variant(resp),
-                                Err(e) => RpcResponse::RpcError(e.to_string()),
+                                Err(e) => RpcResponse::RpcError{ e: e.to_string()},
                             }
                         }
                     ),*

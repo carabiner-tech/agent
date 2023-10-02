@@ -11,6 +11,7 @@ pub use operations::{
         create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
         create_file::{CreateFileRequest, CreateFileResponse},
         delete_content::{DeleteContentRequest, DeleteContentResponse},
+        diff::{DiffRequest, DiffResponse},
         insert_content::{InsertContentRequest, InsertContentResponse},
         list_files::{ListFilesRequest, ListFilesResponse},
         move_file::{MoveFileRequest, MoveFileResponse},
@@ -37,6 +38,7 @@ define_rpc!(
     MoveFile(MoveFileRequest, MoveFileResponse),
     RemoveFile(RemoveFileRequest, RemoveFileResponse),
     // edit file content
+    Diff(DiffRequest, DiffResponse),
     InsertContent(InsertContentRequest, InsertContentResponse),
     ReplaceContent(ReplaceContentRequest, ReplaceContentResponse),
     DeleteContent(DeleteContentRequest, DeleteContentResponse),

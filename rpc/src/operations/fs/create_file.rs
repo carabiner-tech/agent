@@ -1,8 +1,6 @@
-use std::{
-    fs::File,
-    io::{self, Write},
-};
+use std::{error::Error, fs::File, io::Write, path::PathBuf};
 
+use crate::operations::fs::utils::ensure_relative;
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
@@ -18,16 +16,9 @@ pub struct CreateFileResponse {
 }
 
 impl CreateFileRequest {
-    pub async fn process(self) -> io::Result<CreateFileResponse> {
-        let path = std::path::Path::new(&self.path);
-        // Only support creating files in relative paths / sub-directories of CWD
-        if !path.is_relative() && !path.starts_with(std::env::current_dir()?) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "Path must be a sub-directory of the current working directory",
-            ));
-        }
-        let mut file = File::create(&self.path)?;
+    pub async fn process(self) -> Result<CreateFileResponse, Box<dyn Error>> {
+        let path = ensure_relative(PathBuf::from(self.path)).await?;
+        let mut file = File::create(path)?;
         file.write_all(self.content.as_bytes())?;
         Ok(CreateFileResponse { success: true })
     }
