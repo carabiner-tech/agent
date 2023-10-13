@@ -27,7 +27,7 @@ async fn handle_failed_payload(id: uuid::Uuid, error: serde_json::Error, tx: &mu
     let error_msg = format!("Deserialization error: {:?}", error);
     let resp_msg = RpcMessage {
         id,
-        payload: RpcResponse::RpcError(error_msg),
+        payload: RpcResponse::RpcError { e: error_msg },
     };
     let resp_msg_ser = serde_json::to_string(&resp_msg).unwrap();
     tx.send(Message::Text(resp_msg_ser)).await.unwrap();
@@ -48,6 +48,7 @@ async fn main() {
                         serde_json::from_value(partial_msg.payload.clone());
                     match payload_result {
                         Ok(payload) => {
+                            println!("Got RPC message: {:?}", payload);
                             handle_successful_payload(partial_msg.id, payload, &mut tx).await
                         }
                         Err(error) => handle_failed_payload(partial_msg.id, error, &mut tx).await,

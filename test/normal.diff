@@ -1,0 +1,7 @@
+1d0
+< print("File is being executed.")
+27c26
+< euler_problem_12()
+---
+> if __name__ == '__main__':
+>     euler_problem_12()

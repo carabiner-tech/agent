@@ -1,0 +1,18 @@
+--- a/test/euler_problem_12.py
++++ b/test/euler_problem_12.py
+@@ -1,6 +1,5 @@
+-print("File is being executed.")
+ import math
+ 
+ 
+ def euler_problem_12():
+     """Solves Project Euler Problem 12 by calculating and printing the value of the first triangle number to have over five hundred divisors."""
+@@ -26,4 +25,5 @@
+         if count_divisors(triangle_number) > 500:
+             break
+     print(triangle_number)
+-
+-euler_problem_12()
+\ No newline at end of file
++if __name__ == '__main__':
++    euler_problem_12()

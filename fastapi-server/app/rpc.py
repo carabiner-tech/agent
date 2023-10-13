@@ -1,69 +1,53 @@
 # TODO: create pyo3 bindings for rpc lib instead of having to redefine models here
 import uuid
-from typing import List, Union
+from typing import Annotated, List, Literal, Union
 
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class SystemTimeRequest(BaseModel):
-    pass
+    type: Literal["SystemTime"]
 
 
 class SystemTimeResponse(BaseModel):
+    type: Literal["SystemTime"]
     time: str
 
 
 class ListFilesRequest(BaseModel):
+    type: Literal["ListFiles"]
     path: str = "."
-
-
-class File(BaseModel):
-    name: str
-    size: int
+    max_depth: int = 1
 
 
 class ListFilesResponse(BaseModel):
-    files: List[File]
-    directories: List[str]
+    type: Literal["ListFiles"]
+    files: List[str]
+    untraversed: List[str]
 
 
 class ReadFileRequest(BaseModel):
+    type: Literal["ReadFile"]
     path: str
 
 
 class ReadFileResponse(BaseModel):
+    type: Literal["ReadFile"]
     content: str
 
 
+class RpcError(BaseModel):
+    type: Literal["RpcError"]
+    e: str
+
+
 RpcRequest = Union[SystemTimeRequest, ListFilesRequest, ReadFileRequest]
-RpcResponse = Union[SystemTimeResponse, ListFilesResponse, ReadFileResponse]
+RpcResponse = Annotated[
+    Union[SystemTimeResponse, ListFilesResponse, ReadFileResponse, RpcError],
+    Field(discriminator="type"),
+]
 
 
 class Message(BaseModel):
     id: uuid.UUID
     payload: Union[RpcRequest, RpcResponse]
-
-    # Need these extra serializer / validator methods in order to match the structure that serde
-    # creates when our RpcRequest / RpcResponse payloads are enum variants
-    @field_serializer("payload")
-    def serialize_payload(self, payload: RpcRequest):
-        if isinstance(payload, SystemTimeRequest):
-            return {"SystemTime": payload}
-        elif isinstance(payload, ListFilesRequest):
-            return {"ListFiles": payload}
-        elif isinstance(payload, ReadFileRequest):
-            return {"ReadFile": payload}
-        else:
-            return payload
-
-    @field_validator("payload", mode="before")
-    @classmethod
-    def destructure_payload(cls, v):
-        if "SystemTime" in v:
-            return SystemTimeResponse(**v["SystemTime"])
-        elif "ListFiles" in v:
-            return ListFilesResponse(**v["ListFiles"])
-        elif "ReadFile" in v:
-            return ReadFileResponse(**v["ReadFile"])
-        else:
-            return v

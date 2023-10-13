@@ -1,4 +1,5 @@
 import uuid
+from typing import Union
 
 from app.dependencies import (
     CONVERSATION_MAP,
@@ -11,6 +12,7 @@ from app.rpc import (
     ListFilesResponse,
     ReadFileRequest,
     ReadFileResponse,
+    RpcError,
 )
 from app.ws.manager import WsSessionManager
 from fastapi import APIRouter, Depends, HTTPException
@@ -39,7 +41,7 @@ async def use_agent(
 async def list_files(
     req: ListFilesRequest,
     conv: Conversation = Depends(get_conversation),
-) -> ListFilesResponse:
+) -> Union[ListFilesResponse, RpcError]:
     """RPC operation to list files in the current working directory or subdirectory for the active Agent"""
     return await conv.session.send_rpc(req)
 
@@ -48,6 +50,6 @@ async def list_files(
 async def read_file(
     req: ReadFileRequest,
     conv: Conversation = Depends(get_conversation),
-) -> ReadFileResponse:
+) -> Union[ReadFileResponse, RpcError]:
     """RPC operation to read the content of a file at a path on the Agents system"""
     return await conv.session.send_rpc(req)
