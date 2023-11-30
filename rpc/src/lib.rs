@@ -7,6 +7,7 @@ pub mod operations;
 // re-export of request/responses
 pub use operations::{
     commands::run_python::{RunPythonRequest, RunPythonResponse},
+    commands::rustlings::{RustlingsVerifyRequest, RustlingsVerifyResponse},
     fs::{
         create_directory::{CreateDirectoryRequest, CreateDirectoryResponse},
         create_file::{CreateFileRequest, CreateFileResponse},
@@ -46,4 +47,5 @@ define_rpc!(
     SystemTime(SystemTimeRequest, SystemTimeResponse),
     // commands
     RunPython(RunPythonRequest, RunPythonResponse),
+    RustlingsVerify(RustlingsVerifyRequest, RustlingsVerifyResponse)
 );

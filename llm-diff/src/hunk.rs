@@ -116,7 +116,10 @@ impl Hunk {
                 DiffLine::Removed(expected_line) => {
                     let removed_line = original_lines.remove(index);
                     if removed_line.trim() != expected_line.as_str().trim() {
-                        return Err(ApplyError::RemovedLineMismatch);
+                        return Err(ApplyError::RemovedLineMismatch(RemovedLineMismatch {
+                            original: expected_line.to_string(),
+                            removed: removed_line,
+                        }));
                     }
                 }
                 DiffLine::Unchanged(_) => {
@@ -198,10 +201,16 @@ impl std::fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 #[derive(Debug)]
+pub struct RemovedLineMismatch {
+    original: String,
+    removed: String,
+}
+
+#[derive(Debug)]
 pub enum ApplyError {
     ContextNotFound,
     OutOfBounds,
-    RemovedLineMismatch,
+    RemovedLineMismatch(RemovedLineMismatch),
 }
 
 impl std::fmt::Display for ApplyError {
@@ -211,10 +220,13 @@ impl std::fmt::Display for ApplyError {
                 write!(f, "Failed to find the context position for the hunk")
             }
             ApplyError::OutOfBounds => write!(f, "Hunk is out of bounds"),
-            ApplyError::RemovedLineMismatch => write!(
-                f,
-                "Mismatch between the expected removed line and the actual line in the file"
-            ),
+            ApplyError::RemovedLineMismatch(ref mismatch) => {
+                write!(
+                    f,
+                    "Removed line mismatch: expected \"{}\", got \"{}\"",
+                    mismatch.original, mismatch.removed
+                )
+            }
         }
     }
 }
